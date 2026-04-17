@@ -36,12 +36,95 @@ export interface QuestionMatch {
   snippet: string;
 }
 
+export interface TaskTrace {
+  id: string;
+  taskId: string;
+  eventType: string;
+  eventDataJson: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GeneratedPlan {
+  summary: string;
+  assumptions: string[];
+  impactedFiles: string[];
+  steps: string[];
+  risks: string[];
+  validation: string[];
+}
+
+export interface ApprovalRequest {
+  id: string;
+  taskId: string;
+  approvalType: "plan" | "patch" | "validation";
+  summary: string;
+  payloadJson: Record<string, unknown>;
+  status: "pending" | "approved" | "rejected";
+  createdAt: string;
+  updatedAt: string;
+}
+
+const API_BASE_URL = "/api";
+
+export async function createPlan(payload: {
+  repositoryId: string;
+  prompt: string;
+}): Promise<{
+  ok: true;
+  taskId: string;
+  approvalRequestId: string;
+  repository: {
+    id: string;
+    name: string;
+  };
+  matches: QuestionMatch[];
+  plan: GeneratedPlan;
+}> {
+  return request("/plans", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateApprovalRequest(
+  approvalRequestId: string,
+  payload: { status: "approved" | "rejected" },
+): Promise<{
+  ok: true;
+  approval: ApprovalRequest;
+}> {
+  return request(`/approval-requests/${approvalRequestId}`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getTask(taskId: string): Promise<{
+  ok: true;
+  task: {
+    id: string;
+    status: string;
+    input: Record<string, unknown>;
+    output: Record<string, unknown> | null;
+    createdAt: string;
+    updatedAt: string;
+  };
+  repository: Repository | null;
+  traces: TaskTrace[];
+  approvals: ApprovalRequest[];
+}> {
+  return request(`/tasks/${taskId}`);
+}
+
 export async function askQuestion(payload: {
   repositoryId: string;
   question: string;
 }): Promise<{
   ok: true;
+  taskId: string;
   question: string;
+  answer: string;
   repository: {
     id: string;
     name: string;
@@ -53,8 +136,6 @@ export async function askQuestion(payload: {
     body: JSON.stringify(payload),
   });
 }
-
-const API_BASE_URL = "/api";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {

@@ -4,5 +4,8 @@ export * from "./models/Workspace";
 export * from "./models/WorkspaceMember";
 export * from "./models/Repository";
 export * from "./models/RepositoryIndex";
+export * from "./models/Task";
+export * from "./models/TaskTrace";
+export * from "./models/ApprovalRequest";
 export * from "./models/init";
 export * from "./repositories/repositoryIndexing";

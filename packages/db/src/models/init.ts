@@ -1,5 +1,8 @@
+import { ApprovalRequest } from "./ApprovalRequest";
 import { Repository } from "./Repository";
 import { RepositoryIndex } from "./RepositoryIndex";
+import { Task } from "./Task";
+import { TaskTrace } from "./TaskTrace";
 import { User } from "./User";
 import { Workspace } from "./Workspace";
 import { WorkspaceMember } from "./WorkspaceMember";
@@ -54,6 +57,56 @@ export function initModels(): void {
   RepositoryIndex.belongsTo(Repository, {
     foreignKey: "repositoryId",
     as: "repository",
+  });
+
+  Workspace.hasMany(Task, {
+    foreignKey: "workspaceId",
+    as: "tasks",
+  });
+
+  Task.belongsTo(Workspace, {
+    foreignKey: "workspaceId",
+    as: "workspace",
+  });
+
+  User.hasMany(Task, {
+    foreignKey: "userId",
+    as: "tasks",
+  });
+
+  Task.belongsTo(User, {
+    foreignKey: "userId",
+    as: "user",
+  });
+
+  Repository.hasMany(Task, {
+    foreignKey: "primaryRepositoryId",
+    as: "tasks",
+  });
+
+  Task.belongsTo(Repository, {
+    foreignKey: "primaryRepositoryId",
+    as: "primaryRepository",
+  });
+
+  Task.hasMany(TaskTrace, {
+    foreignKey: "taskId",
+    as: "traces",
+  });
+
+  TaskTrace.belongsTo(Task, {
+    foreignKey: "taskId",
+    as: "task",
+  });
+
+  Task.hasMany(ApprovalRequest, {
+    foreignKey: "taskId",
+    as: "approvals",
+  });
+
+  ApprovalRequest.belongsTo(Task, {
+    foreignKey: "taskId",
+    as: "task",
   });
 
   initialized = true;

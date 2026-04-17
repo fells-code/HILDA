@@ -3,17 +3,24 @@ import ReactDOM from "react-dom/client";
 import { Card } from "./components/Card";
 import { StatusBadge } from "./components/StatusBadge";
 import {
+  ApprovalRequest,
   askQuestion,
+  createPlan,
   createRepository,
   createWorkspace,
+  GeneratedPlan,
   getRepositoryIndexStatus,
+  getTask,
   listRepositories,
   listWorkspaces,
+  TaskTrace,
+  updateApprovalRequest,
   type QuestionMatch,
   type Repository,
   type RepositoryIndex,
   type Workspace,
 } from "./lib/api";
+import { PlanSection } from "./components/PlanSection";
 
 function App() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
@@ -39,6 +46,21 @@ function App() {
   const [askingQuestion, setAskingQuestion] = useState(false);
   const [questionMatches, setQuestionMatches] = useState<QuestionMatch[]>([]);
   const [questionRepositoryName, setQuestionRepositoryName] = useState("");
+  const [questionAnswer, setQuestionAnswer] = useState("");
+  const [latestTaskId, setLatestTaskId] = useState("");
+  const [taskTraces, setTaskTraces] = useState<TaskTrace[]>([]);
+  const [planPrompt, setPlanPrompt] = useState("");
+  const [creatingPlan, setCreatingPlan] = useState(false);
+  const [latestPlan, setLatestPlan] = useState<GeneratedPlan | null>(null);
+  const [latestPlanTaskId, setLatestPlanTaskId] = useState("");
+  const [latestPlanApprovalId, setLatestPlanApprovalId] = useState("");
+  const [latestPlanApprovals, setLatestPlanApprovals] = useState<
+    ApprovalRequest[]
+  >([]);
+  const [latestPlanTraces, setLatestPlanTraces] = useState<TaskTrace[]>([]);
+  const [latestPlanMatches, setLatestPlanMatches] = useState<QuestionMatch[]>(
+    [],
+  );
 
   const selectedWorkspace = useMemo(
     () =>
@@ -133,12 +155,68 @@ function App() {
 
       setQuestionMatches(response.matches);
       setQuestionRepositoryName(response.repository.name);
+      setQuestionAnswer(response.answer);
+      setLatestTaskId(response.taskId);
+
+      const taskResponse = await getTask(response.taskId);
+      setTaskTraces(taskResponse.traces);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to search repository",
       );
     } finally {
       setAskingQuestion(false);
+    }
+  }
+
+  async function handleCreatePlan(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!selectedRepositoryId || !planPrompt.trim()) {
+      return;
+    }
+
+    setCreatingPlan(true);
+    setError("");
+
+    try {
+      const response = await createPlan({
+        repositoryId: selectedRepositoryId,
+        prompt: planPrompt.trim(),
+      });
+
+      setLatestPlan(response.plan);
+      setLatestPlanTaskId(response.taskId);
+      setLatestPlanApprovalId(response.approvalRequestId);
+      setLatestPlanMatches(response.matches);
+
+      const taskResponse = await getTask(response.taskId);
+      setLatestPlanTraces(taskResponse.traces);
+      setLatestPlanApprovals(taskResponse.approvals);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create plan");
+    } finally {
+      setCreatingPlan(false);
+    }
+  }
+
+  async function handlePlanApproval(status: "approved" | "rejected") {
+    if (!latestPlanApprovalId || !latestPlanTaskId) {
+      return;
+    }
+
+    setError("");
+
+    try {
+      await updateApprovalRequest(latestPlanApprovalId, { status });
+
+      const taskResponse = await getTask(latestPlanTaskId);
+      setLatestPlanTraces(taskResponse.traces);
+      setLatestPlanApprovals(taskResponse.approvals);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to update approval",
+      );
     }
   }
 
@@ -561,6 +639,22 @@ function App() {
                 </button>
               </form>
 
+              {questionAnswer ? (
+                <div
+                  style={{
+                    marginBottom: 16,
+                    whiteSpace: "pre-wrap",
+                    lineHeight: 1.5,
+                    color: "#1e293b",
+                    background: "#eff6ff",
+                    border: "1px solid #bfdbfe",
+                    borderRadius: 12,
+                    padding: 12,
+                  }}
+                >
+                  {questionAnswer}
+                </div>
+              ) : null}
               {questionMatches.length === 0 ? (
                 <p style={mutedTextStyle}>
                   No evidence yet. Ask a repository question.
@@ -606,6 +700,253 @@ function App() {
                       </div>
                     </article>
                   ))}
+                </div>
+              )}
+
+              {latestTaskId && taskTraces.length > 0 ? (
+                <div style={{ marginTop: 16 }}>
+                  <div style={{ ...mutedTextStyle, marginBottom: 8 }}>
+                    Trace for task {latestTaskId}
+                  </div>
+                  <div style={{ display: "grid", gap: 8 }}>
+                    {taskTraces.map((trace) => (
+                      <div
+                        key={trace.id}
+                        style={{
+                          border: "1px solid #e5e7eb",
+                          borderRadius: 12,
+                          padding: 12,
+                          background: "#fff",
+                        }}
+                      >
+                        <div style={{ fontWeight: 600 }}>{trace.eventType}</div>
+                        <div style={{ ...mutedTextStyle, marginTop: 4 }}>
+                          {new Date(trace.createdAt).toLocaleString()}
+                        </div>
+                        <pre
+                          style={{
+                            margin: "8px 0 0",
+                            whiteSpace: "pre-wrap",
+                            fontSize: 12,
+                            color: "#334155",
+                          }}
+                        >
+                          {JSON.stringify(trace.eventDataJson, null, 2)}
+                        </pre>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </Card>
+
+            <Card
+              title="Plan a change"
+              subtitle="Generate a structured plan and require explicit approval before implementation."
+            >
+              <form
+                onSubmit={handleCreatePlan}
+                style={{
+                  display: "grid",
+                  gap: 12,
+                  marginBottom: 16,
+                }}
+              >
+                <select
+                  value={selectedRepositoryId}
+                  onChange={(event) =>
+                    setSelectedRepositoryId(event.target.value)
+                  }
+                  style={inputStyle}
+                  disabled={repositories.length === 0}
+                >
+                  <option value="">Select a repository</option>
+                  {repositories.map((repository) => (
+                    <option key={repository.id} value={repository.id}>
+                      {repository.name}
+                    </option>
+                  ))}
+                </select>
+
+                <input
+                  value={planPrompt}
+                  onChange={(event) => setPlanPrompt(event.target.value)}
+                  placeholder="Add a repository summary endpoint and show it in the UI"
+                  style={inputStyle}
+                  disabled={!selectedRepositoryId}
+                />
+
+                <button
+                  type="submit"
+                  disabled={!selectedRepositoryId || creatingPlan}
+                  style={buttonStyle}
+                >
+                  {creatingPlan ? "Planning..." : "Create plan"}
+                </button>
+              </form>
+
+              {!latestPlan ? (
+                <p style={mutedTextStyle}>
+                  No plan yet. Create a plan for an indexed repository.
+                </p>
+              ) : (
+                <div style={{ display: "grid", gap: 16 }}>
+                  <div
+                    style={{
+                      background: "#f8fafc",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: 12,
+                      padding: 14,
+                    }}
+                  >
+                    <strong>{latestPlan.summary}</strong>
+                  </div>
+
+                  <PlanSection
+                    title="Assumptions"
+                    items={latestPlan.assumptions}
+                    mutedTextStyle={mutedTextStyle}
+                  />
+                  <PlanSection
+                    title="Impacted files"
+                    items={latestPlan.impactedFiles}
+                    mutedTextStyle={mutedTextStyle}
+                  />
+                  <PlanSection
+                    title="Steps"
+                    items={latestPlan.steps}
+                    mutedTextStyle={mutedTextStyle}
+                  />
+                  <PlanSection
+                    title="Risks"
+                    items={latestPlan.risks}
+                    mutedTextStyle={mutedTextStyle}
+                  />
+                  <PlanSection
+                    title="Validation"
+                    items={latestPlan.validation}
+                    mutedTextStyle={mutedTextStyle}
+                  />
+
+                  <div>
+                    <div style={{ ...mutedTextStyle, marginBottom: 8 }}>
+                      Supporting evidence
+                    </div>
+                    <div style={{ display: "grid", gap: 8 }}>
+                      {latestPlanMatches.map((match) => (
+                        <article
+                          key={`${match.path}-${match.score}`}
+                          style={{
+                            border: "1px solid #e5e7eb",
+                            borderRadius: 12,
+                            padding: 12,
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              gap: 12,
+                            }}
+                          >
+                            <strong>{match.path}</strong>
+                            <span style={mutedTextStyle}>
+                              score {match.score}
+                            </span>
+                          </div>
+                          <div
+                            style={{
+                              marginTop: 8,
+                              whiteSpace: "pre-wrap",
+                              lineHeight: 1.5,
+                              color: "#334155",
+                            }}
+                          >
+                            {match.snippet}
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", gap: 12 }}>
+                    <button
+                      onClick={() => void handlePlanApproval("approved")}
+                      style={buttonStyle}
+                    >
+                      Approve plan
+                    </button>
+                    <button
+                      onClick={() => void handlePlanApproval("rejected")}
+                      style={secondaryButtonStyle}
+                    >
+                      Reject plan
+                    </button>
+                  </div>
+
+                  {latestPlanApprovals.length > 0 ? (
+                    <div>
+                      <div style={{ ...mutedTextStyle, marginBottom: 8 }}>
+                        Approval history
+                      </div>
+                      <div style={{ display: "grid", gap: 8 }}>
+                        {latestPlanApprovals.map((approval) => (
+                          <div
+                            key={approval.id}
+                            style={{
+                              border: "1px solid #e5e7eb",
+                              borderRadius: 12,
+                              padding: 12,
+                              display: "flex",
+                              justifyContent: "space-between",
+                              gap: 12,
+                            }}
+                          >
+                            <div>{approval.summary}</div>
+                            <StatusBadge status={approval.status} />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {latestPlanTaskId && latestPlanTraces.length > 0 ? (
+                    <div>
+                      <div style={{ ...mutedTextStyle, marginBottom: 8 }}>
+                        Trace for task {latestPlanTaskId}
+                      </div>
+                      <div style={{ display: "grid", gap: 8 }}>
+                        {latestPlanTraces.map((trace) => (
+                          <div
+                            key={trace.id}
+                            style={{
+                              border: "1px solid #e5e7eb",
+                              borderRadius: 12,
+                              padding: 12,
+                              background: "#fff",
+                            }}
+                          >
+                            <div style={{ fontWeight: 600 }}>
+                              {trace.eventType}
+                            </div>
+                            <div style={{ ...mutedTextStyle, marginTop: 4 }}>
+                              {new Date(trace.createdAt).toLocaleString()}
+                            </div>
+                            <pre
+                              style={{
+                                margin: "8px 0 0",
+                                whiteSpace: "pre-wrap",
+                                fontSize: 12,
+                                color: "#334155",
+                              }}
+                            >
+                              {JSON.stringify(trace.eventDataJson, null, 2)}
+                            </pre>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               )}
             </Card>

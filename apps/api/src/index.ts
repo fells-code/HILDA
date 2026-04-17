@@ -21,6 +21,8 @@ async function start() {
   const repositoryIndexesRouter = (await import("./routes/repositoryIndexes"))
     .default;
   const questionsRouter = (await import("./routes/questions")).default;
+  const tasksRouter = (await import("./routes/tasks")).default;
+  const plansRouter = (await import("./routes/plans")).default;
 
   initModels();
   await connectDatabase();
@@ -56,6 +58,8 @@ async function start() {
   app.use("/api", repositoriesRouter);
   app.use("/api", repositoryIndexesRouter);
   app.use("/api", questionsRouter);
+  app.use("/api", tasksRouter);
+  app.use("/api", plansRouter);
 
   app.use(
     (

@@ -2,9 +2,10 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { Router } from "express";
 import { z } from "zod";
-import { Repository, Workspace } from "@hilda/db";
+import { Repository, Task, TaskTrace, Workspace } from "@hilda/db";
 import type { AuthenticatedRequest } from "../middleware/devAuth";
-import { getProjectRoot } from "../lib/rootPath";
+import { getProjectRoot } from "../lib/rootPaths";
+import { summarizeMatches } from "../lib/summarizeMatches";
 
 const router = Router();
 
@@ -100,6 +101,7 @@ function buildSnippet(content: string, query: string): string {
 }
 
 router.post("/questions", async (req, res, next) => {
+  let task: Task | null = null;
   try {
     const authUser = (req as AuthenticatedRequest).authUser;
     const parsed = askQuestionSchema.safeParse(req.body);
@@ -150,8 +152,36 @@ router.post("/questions", async (req, res, next) => {
     await fs.access(repoPath).catch(() => {
       throw new Error(`Indexed repository path not found: ${repoPath}`);
     });
+
+    task = await Task.create({
+      workspaceId: workspace.id,
+      userId: authUser.id,
+      primaryRepositoryId: repository.id,
+      taskType: "question",
+      status: "running",
+      input: {
+        question: parsed.data.question,
+      },
+    });
+
+    await TaskTrace.create({
+      taskId: task.id,
+      eventType: "question_received",
+      eventDataJson: {
+        question: parsed.data.question,
+        repositoryId: repository.id,
+      },
+    });
     const files: string[] = [];
     await walk(repoPath, repoPath, files);
+
+    await TaskTrace.create({
+      taskId: task.id,
+      eventType: "files_scanned",
+      eventDataJson: {
+        fileCount: files.length,
+      },
+    });
 
     const terms = parsed.data.question
       .toLowerCase()
@@ -196,16 +226,54 @@ router.post("/questions", async (req, res, next) => {
 
     matches.sort((a, b) => b.score - a.score);
 
+    const topMatches = matches.slice(0, 10);
+    const answer = summarizeMatches(parsed.data.question, topMatches);
+
+    await TaskTrace.create({
+      taskId: task.id,
+      eventType: "matches_ranked",
+      eventDataJson: {
+        matchCount: topMatches.length,
+        topPaths: topMatches.slice(0, 5).map((match) => match.path),
+      },
+    });
+
+    await task.update({
+      status: "completed",
+      output: {
+        answer,
+        matchCount: topMatches.length,
+      },
+    });
+
     res.json({
       ok: true,
+      taskId: task.id,
       question: parsed.data.question,
+      answer,
       repository: {
         id: repository.id,
         name: repository.name,
       },
-      matches: matches.slice(0, 10),
+      matches: topMatches,
     });
   } catch (error) {
+    if (task) {
+      await task.update({
+        status: "failed",
+        output: {
+          error: error instanceof Error ? error.message : "Unknown error",
+        },
+      });
+
+      await TaskTrace.create({
+        taskId: task.id,
+        eventType: "question_failed",
+        eventDataJson: {
+          error: error instanceof Error ? error.message : "Unknown error",
+        },
+      });
+    }
     next(error);
   }
 });
