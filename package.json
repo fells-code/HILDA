@@ -1,0 +1,21 @@
+{
+    "name": "hilda",
+    "version": "0.1.0",
+    "private": "false",
+    "packageManager": "pnpm@10.11.0",
+    "scripts": {
+        "build": "turbo run build",
+        "dev": "turbo run dev --parallel",
+        "lint": "turbo run lint",
+        "typecheck": "turbo run typecheck",
+        "test": "turbo run test",
+        "clean": "turbo run clean",
+        "format": "prettier --write ."
+    },
+    "devDependencies": {
+        "@types/node": "^22.19.17",
+        "prettier": "^3.3.3",
+        "turbo": "^2.0.14",
+        "typescript": "^5.6.3"
+    }
+}

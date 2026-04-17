@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM"],
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "baseUrl": ".",
+    "paths": {
+      "@hilda/shared": ["packages/shared/src"],
+      "@hilda/db": ["packages/db/src"],
+      "@hilda/auth": ["packages/auth/src"],
+      "@hilda/ui": ["packages/ui/src"],
+      "@hilda/retrieval": ["packages/retrieval/src"],
+      "@hilda/tools": ["packages/tools/src"],
+      "@hilda/agents": ["packages/agents/src"],
+      "@hilda/memory": ["packages/memory/src"],
+      "@hilda/observability": ["packages/observability/src"]
+    }
+  }
+}
