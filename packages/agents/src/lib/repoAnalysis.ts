@@ -1,0 +1,112 @@
+import fs from "node:fs/promises";
+import path from "node:path";
+
+const IGNORED_DIRS = new Set([
+  ".git",
+  "node_modules",
+  "dist",
+  "build",
+  "coverage",
+  ".turbo",
+  ".next",
+]);
+
+async function walk(
+  dir: string,
+  root: string,
+  results: string[],
+): Promise<void> {
+  const entries = await fs.readdir(dir, { withFileTypes: true });
+
+  for (const entry of entries) {
+    if (entry.isDirectory() && IGNORED_DIRS.has(entry.name)) {
+      continue;
+    }
+
+    const fullPath = path.join(dir, entry.name);
+
+    if (entry.isDirectory()) {
+      await walk(fullPath, root, results);
+      continue;
+    }
+
+    results.push(path.relative(root, fullPath));
+  }
+}
+
+export async function listAllFiles(repoPath: string): Promise<string[]> {
+  const files: string[] = [];
+  await walk(repoPath, repoPath, files);
+  return files;
+}
+
+export async function countTestFiles(repoPath: string) {
+  const files = await listAllFiles(repoPath);
+
+  const testFiles = files.filter((file) => {
+    const lower = file.toLowerCase();
+
+    return (
+      lower.includes("/test/") ||
+      lower.includes("/tests/") ||
+      lower.endsWith(".test.ts") ||
+      lower.endsWith(".test.tsx") ||
+      lower.endsWith(".test.js") ||
+      lower.endsWith(".test.jsx") ||
+      lower.endsWith(".spec.ts") ||
+      lower.endsWith(".spec.tsx") ||
+      lower.endsWith(".spec.js") ||
+      lower.endsWith(".spec.jsx")
+    );
+  });
+
+  return {
+    count: testFiles.length,
+    sample: testFiles.slice(0, 25),
+  };
+}
+
+export async function listPackageScripts(repoPath: string) {
+  const packageJsonPath = path.join(repoPath, "package.json");
+  const raw = await fs.readFile(packageJsonPath, "utf8");
+  const pkg = JSON.parse(raw) as {
+    scripts?: Record<string, string>;
+  };
+
+  return pkg.scripts ?? {};
+}
+
+export async function summarizeStructure(repoPath: string) {
+  const files = await listAllFiles(repoPath);
+  const topLevelEntries = await fs.readdir(repoPath);
+
+  const packageLikeDirs = topLevelEntries.filter((entry) =>
+    [
+      "apps",
+      "packages",
+      "services",
+      "src",
+      "docs",
+      "scripts",
+      "test",
+      "tests",
+    ].includes(entry.toLowerCase()),
+  );
+
+  const markdownFiles = files.filter((file) =>
+    file.toLowerCase().endsWith(".md"),
+  );
+  const tsFiles = files.filter(
+    (file) =>
+      file.toLowerCase().endsWith(".ts") || file.toLowerCase().endsWith(".tsx"),
+  );
+
+  return {
+    totalFiles: files.length,
+    topLevelEntries: topLevelEntries.slice(0, 25),
+    packageLikeDirs,
+    markdownCount: markdownFiles.length,
+    tsCount: tsFiles.length,
+    sampleDocs: markdownFiles.slice(0, 10),
+  };
+}

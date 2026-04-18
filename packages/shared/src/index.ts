@@ -16,6 +16,11 @@ export type TaskStatus =
   | "completed"
   | "failed";
 
+export type RepositoryOverviewMetric = import("./repositoryOverview").RepositoryOverviewMetric;
+export type RepositoryOverviewSection = import("./repositoryOverview").RepositoryOverviewSection;
+export type RepositoryOverviewEvidence = import("./repositoryOverview").RepositoryOverviewEvidence;
+export type RepositoryOverview = import("./repositoryOverview").RepositoryOverview;
+
 export interface HealthResponse {
   ok: true;
   service: string;
@@ -38,3 +43,8 @@ export interface Repository {
   status: RepositoryStatus;
   createdAt: string;
 }
+
+export {
+  formatRepositoryOverviewSummary,
+  generateRepositoryOverview,
+} from "./repositoryOverview";

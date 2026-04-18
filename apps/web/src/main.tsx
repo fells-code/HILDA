@@ -3,18 +3,24 @@ import ReactDOM from "react-dom/client";
 import { Card } from "./components/Card";
 import { StatusBadge } from "./components/StatusBadge";
 import {
+  AnalysisResult,
   ApprovalRequest,
   askQuestion,
+  askRepository,
+  createPatch,
   createPlan,
   createRepository,
+  createValidation,
   createWorkspace,
   GeneratedPlan,
   getRepositoryIndexStatus,
   getTask,
   listRepositories,
   listWorkspaces,
+  PatchArtifact,
   TaskTrace,
   updateApprovalRequest,
+  updatePatchApprovalRequest,
   type QuestionMatch,
   type Repository,
   type RepositoryIndex,
@@ -61,6 +67,29 @@ function App() {
   const [latestPlanMatches, setLatestPlanMatches] = useState<QuestionMatch[]>(
     [],
   );
+  const [creatingPatch, setCreatingPatch] = useState(false);
+  const [latestPatchTaskId, setLatestPatchTaskId] = useState("");
+  const [latestPatchApprovalId, setLatestPatchApprovalId] = useState("");
+  const [latestPatchApprovals, setLatestPatchApprovals] = useState<
+    ApprovalRequest[]
+  >([]);
+  const [latestPatchArtifacts, setLatestPatchArtifacts] = useState<
+    PatchArtifact[]
+  >([]);
+  const [latestPatchTraces, setLatestPatchTraces] = useState<TaskTrace[]>([]);
+  const [runningValidation, setRunningValidation] = useState(false);
+  const [latestValidationTaskId, setLatestValidationTaskId] = useState("");
+  const [latestValidationArtifacts, setLatestValidationArtifacts] = useState<
+    PatchArtifact[]
+  >([]);
+  const [latestValidationTraces, setLatestValidationTraces] = useState<
+    TaskTrace[]
+  >([]);
+  const [validationTestCommand, setValidationTestCommand] = useState("");
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(
+    null,
+  );
+  const [askRoute, setAskRoute] = useState<string>("");
 
   const selectedWorkspace = useMemo(
     () =>
@@ -146,17 +175,29 @@ function App() {
 
     setAskingQuestion(true);
     setError("");
+    setQuestionMatches([]);
+    setQuestionAnswer("");
+    setAnalysisResult(null);
+    setTaskTraces([]);
 
     try {
-      const response = await askQuestion({
+      const response = await askRepository({
         repositoryId: selectedRepositoryId,
-        question: question.trim(),
+        prompt: question.trim(),
       });
 
-      setQuestionMatches(response.matches);
-      setQuestionRepositoryName(response.repository.name);
-      setQuestionAnswer(response.answer);
-      setLatestTaskId(response.taskId);
+      setAskRoute(response.route);
+
+      if (response.route === "repo_analysis") {
+        setAnalysisResult(response.result);
+        setQuestionRepositoryName(response.repository.name);
+        setLatestTaskId(response.taskId);
+      } else {
+        setQuestionMatches(response.matches);
+        setQuestionRepositoryName(response.repository.name);
+        setQuestionAnswer(response.answer);
+        setLatestTaskId(response.taskId);
+      }
 
       const taskResponse = await getTask(response.taskId);
       setTaskTraces(taskResponse.traces);
@@ -217,6 +258,89 @@ function App() {
       setError(
         err instanceof Error ? err.message : "Failed to update approval",
       );
+    }
+  }
+
+  async function handleCreatePatch() {
+    if (
+      !selectedRepositoryId ||
+      !latestPlanTaskId ||
+      !latestPlan ||
+      latestPlanApprovals.every((approval) => approval.status !== "approved")
+    ) {
+      return;
+    }
+
+    setCreatingPatch(true);
+    setError("");
+
+    try {
+      const response = await createPatch({
+        repositoryId: selectedRepositoryId,
+        approvedPlanTaskId: latestPlanTaskId,
+        prompt: latestPlan.summary,
+        evidence: latestPlanMatches,
+      });
+
+      setLatestPatchTaskId(response.taskId);
+      setLatestPatchApprovalId(response.approvalRequestId);
+
+      const taskResponse = await getTask(response.taskId);
+      setLatestPatchApprovals(taskResponse.approvals);
+      setLatestPatchArtifacts(taskResponse.artifacts);
+      setLatestPatchTraces(taskResponse.traces);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create patch");
+    } finally {
+      setCreatingPatch(false);
+    }
+  }
+
+  async function handlePatchApproval(status: "approved" | "rejected") {
+    if (!latestPatchApprovalId || !latestPatchTaskId) {
+      return;
+    }
+
+    setError("");
+
+    try {
+      await updatePatchApprovalRequest(latestPatchApprovalId, { status });
+
+      const taskResponse = await getTask(latestPatchTaskId);
+      setLatestPatchApprovals(taskResponse.approvals);
+      setLatestPatchArtifacts(taskResponse.artifacts);
+      setLatestPatchTraces(taskResponse.traces);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to update patch approval",
+      );
+    }
+  }
+
+  async function handleRunValidation() {
+    if (!selectedRepositoryId || !latestPatchTaskId) {
+      return;
+    }
+
+    setRunningValidation(true);
+    setError("");
+
+    try {
+      const response = await createValidation({
+        repositoryId: selectedRepositoryId,
+        patchTaskId: latestPatchTaskId,
+        testCommand: validationTestCommand.trim() || undefined,
+      });
+
+      setLatestValidationTaskId(response.taskId);
+
+      const taskResponse = await getTask(response.taskId);
+      setLatestValidationArtifacts(taskResponse.artifacts);
+      setLatestValidationTraces(taskResponse.traces);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to run validation");
+    } finally {
+      setRunningValidation(false);
     }
   }
 
@@ -639,6 +763,111 @@ function App() {
                 </button>
               </form>
 
+              {analysisResult ? (
+                <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
+                  <div
+                    style={{
+                      whiteSpace: "pre-wrap",
+                      lineHeight: 1.5,
+                      color: "#1e293b",
+                      background: "#eff6ff",
+                      border: "1px solid #bfdbfe",
+                      borderRadius: 12,
+                      padding: 12,
+                    }}
+                  >
+                    <strong>{analysisResult.title}</strong>
+                    <div style={{ marginTop: 8 }}>{analysisResult.answer}</div>
+                  </div>
+
+                  {analysisResult.metrics && analysisResult.metrics.length > 0 ? (
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns:
+                          "repeat(auto-fit, minmax(150px, 1fr))",
+                        gap: 10,
+                      }}
+                    >
+                      {analysisResult.metrics.map((metric) => (
+                        <article
+                          key={`${metric.label}-${metric.value}`}
+                          style={{
+                            border: "1px solid #dbeafe",
+                            borderRadius: 12,
+                            padding: 12,
+                            background: "#f8fbff",
+                          }}
+                        >
+                          <div style={{ ...mutedTextStyle, marginBottom: 4 }}>
+                            {metric.label}
+                          </div>
+                          <div style={{ fontWeight: 600 }}>{metric.value}</div>
+                        </article>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  {analysisResult.sections && analysisResult.sections.length > 0 ? (
+                    <div style={{ display: "grid", gap: 10 }}>
+                      {analysisResult.sections.map((section) => (
+                        <article
+                          key={section.title}
+                          style={{
+                            border: "1px solid #e5e7eb",
+                            borderRadius: 12,
+                            padding: 12,
+                            background: "#fff",
+                          }}
+                        >
+                          <div style={{ fontWeight: 600, marginBottom: 8 }}>
+                            {section.title}
+                          </div>
+                          {section.items.length === 0 ? (
+                            <div style={mutedTextStyle}>No details yet.</div>
+                          ) : (
+                            <div style={{ display: "grid", gap: 6 }}>
+                              {section.items.map((item, index) => (
+                                <div
+                                  key={`${section.title}-${index}-${item}`}
+                                  style={{
+                                    lineHeight: 1.5,
+                                    color: "#1e293b",
+                                  }}
+                                >
+                                  {item}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </article>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  {analysisResult.evidence.length > 0 ? (
+                    <div style={{ display: "grid", gap: 8 }}>
+                      {analysisResult.evidence.map((item, index) => (
+                        <article
+                          key={`${item.label}-${item.value}-${index}`}
+                          style={{
+                            border: "1px solid #e5e7eb",
+                            borderRadius: 12,
+                            padding: 12,
+                            background: "#fff",
+                          }}
+                        >
+                          <div style={{ ...mutedTextStyle, marginBottom: 4 }}>
+                            {item.label}
+                          </div>
+                          <div>{item.value}</div>
+                        </article>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
               {questionAnswer ? (
                 <div
                   style={{
@@ -666,7 +895,7 @@ function App() {
                   </div>
                   {questionMatches.map((match) => (
                     <article
-                      key={`${match.path}-${match.score}`}
+                      key={match.chunkId}
                       style={{
                         border: "1px solid #e5e7eb",
                         borderRadius: 14,
@@ -683,8 +912,37 @@ function App() {
                         }}
                       >
                         <strong>{match.path}</strong>
-                        <span style={mutedTextStyle}>score {match.score}</span>
+                        <span style={mutedTextStyle}>
+                          lines {match.lineStart}-{match.lineEnd} • score{" "}
+                          {match.score}
+                        </span>
                       </div>
+                      {match.reasons.length > 0 ? (
+                        <div
+                          style={{
+                            display: "flex",
+                            flexWrap: "wrap",
+                            gap: 8,
+                            marginBottom: 8,
+                          }}
+                        >
+                          {match.reasons.map((reason) => (
+                            <span
+                              key={`${match.chunkId}-${reason}`}
+                              style={{
+                                fontSize: 12,
+                                color: "#1d4ed8",
+                                background: "#eff6ff",
+                                border: "1px solid #bfdbfe",
+                                borderRadius: 999,
+                                padding: "4px 8px",
+                              }}
+                            >
+                              {reason}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
                       <div
                         style={{
                           whiteSpace: "pre-wrap",
@@ -917,6 +1175,232 @@ function App() {
                       </div>
                       <div style={{ display: "grid", gap: 8 }}>
                         {latestPlanTraces.map((trace) => (
+                          <div
+                            key={trace.id}
+                            style={{
+                              border: "1px solid #e5e7eb",
+                              borderRadius: 12,
+                              padding: 12,
+                              background: "#fff",
+                            }}
+                          >
+                            <div style={{ fontWeight: 600 }}>
+                              {trace.eventType}
+                            </div>
+                            <div style={{ ...mutedTextStyle, marginTop: 4 }}>
+                              {new Date(trace.createdAt).toLocaleString()}
+                            </div>
+                            <pre
+                              style={{
+                                margin: "8px 0 0",
+                                whiteSpace: "pre-wrap",
+                                fontSize: 12,
+                                color: "#334155",
+                              }}
+                            >
+                              {JSON.stringify(trace.eventDataJson, null, 2)}
+                            </pre>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            </Card>
+
+            <Card
+              title="Draft patch and validate"
+              subtitle="Generate a bounded patch artifact, approve it, and run local validation commands."
+            >
+              {!latestPlan ||
+              latestPlanApprovals.every(
+                (approval) => approval.status !== "approved",
+              ) ? (
+                <p style={mutedTextStyle}>
+                  Approve a plan first to draft a patch.
+                </p>
+              ) : (
+                <div style={{ display: "grid", gap: 16 }}>
+                  <div style={{ display: "flex", gap: 12 }}>
+                    <button
+                      onClick={() => void handleCreatePatch()}
+                      disabled={creatingPatch}
+                      style={buttonStyle}
+                    >
+                      {creatingPatch
+                        ? "Drafting patch..."
+                        : "Create patch draft"}
+                    </button>
+                  </div>
+
+                  {latestPatchArtifacts.length > 0 ? (
+                    <div>
+                      <div style={{ ...mutedTextStyle, marginBottom: 8 }}>
+                        Patch artifacts
+                      </div>
+                      <div style={{ display: "grid", gap: 12 }}>
+                        {latestPatchArtifacts.map((artifact) => (
+                          <article
+                            key={artifact.id}
+                            style={{
+                              border: "1px solid #e5e7eb",
+                              borderRadius: 12,
+                              padding: 12,
+                              background: "#fff",
+                            }}
+                          >
+                            <div style={{ fontWeight: 600, marginBottom: 8 }}>
+                              {artifact.title}
+                            </div>
+                            <pre
+                              style={{
+                                margin: 0,
+                                whiteSpace: "pre-wrap",
+                                fontSize: 12,
+                                lineHeight: 1.5,
+                                color: "#334155",
+                                background: "#f8fafc",
+                                border: "1px solid #e2e8f0",
+                                borderRadius: 12,
+                                padding: 12,
+                              }}
+                            >
+                              {artifact.content}
+                            </pre>
+                          </article>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {latestPatchApprovals.length > 0 ? (
+                    <div style={{ display: "flex", gap: 12 }}>
+                      <button
+                        onClick={() => void handlePatchApproval("approved")}
+                        style={buttonStyle}
+                      >
+                        Approve patch
+                      </button>
+                      <button
+                        onClick={() => void handlePatchApproval("rejected")}
+                        style={secondaryButtonStyle}
+                      >
+                        Reject patch
+                      </button>
+                    </div>
+                  ) : null}
+
+                  {latestPatchTraces.length > 0 ? (
+                    <div>
+                      <div style={{ ...mutedTextStyle, marginBottom: 8 }}>
+                        Patch trace
+                      </div>
+                      <div style={{ display: "grid", gap: 8 }}>
+                        {latestPatchTraces.map((trace) => (
+                          <div
+                            key={trace.id}
+                            style={{
+                              border: "1px solid #e5e7eb",
+                              borderRadius: 12,
+                              padding: 12,
+                              background: "#fff",
+                            }}
+                          >
+                            <div style={{ fontWeight: 600 }}>
+                              {trace.eventType}
+                            </div>
+                            <div style={{ ...mutedTextStyle, marginTop: 4 }}>
+                              {new Date(trace.createdAt).toLocaleString()}
+                            </div>
+                            <pre
+                              style={{
+                                margin: "8px 0 0",
+                                whiteSpace: "pre-wrap",
+                                fontSize: 12,
+                                color: "#334155",
+                              }}
+                            >
+                              {JSON.stringify(trace.eventDataJson, null, 2)}
+                            </pre>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {latestPatchTaskId ? (
+                    <div style={{ display: "grid", gap: 12 }}>
+                      <input
+                        value={validationTestCommand}
+                        onChange={(event) =>
+                          setValidationTestCommand(event.target.value)
+                        }
+                        placeholder="Optional test command, e.g. pnpm test auth"
+                        style={inputStyle}
+                      />
+                      <button
+                        onClick={() => void handleRunValidation()}
+                        disabled={runningValidation}
+                        style={buttonStyle}
+                      >
+                        {runningValidation
+                          ? "Running validation..."
+                          : "Run validation"}
+                      </button>
+                    </div>
+                  ) : null}
+
+                  {latestValidationArtifacts.length > 0 ? (
+                    <div>
+                      <div style={{ ...mutedTextStyle, marginBottom: 8 }}>
+                        Validation reports
+                      </div>
+                      <div style={{ display: "grid", gap: 12 }}>
+                        {latestValidationArtifacts.map((artifact) => (
+                          <article
+                            key={artifact.id}
+                            style={{
+                              border: "1px solid #e5e7eb",
+                              borderRadius: 12,
+                              padding: 12,
+                              background: "#fff",
+                            }}
+                          >
+                            <div style={{ fontWeight: 600, marginBottom: 8 }}>
+                              {artifact.title}
+                            </div>
+                            <pre
+                              style={{
+                                margin: 0,
+                                whiteSpace: "pre-wrap",
+                                fontSize: 12,
+                                lineHeight: 1.5,
+                                color: "#334155",
+                                background: "#f8fafc",
+                                border: "1px solid #e2e8f0",
+                                borderRadius: 12,
+                                padding: 12,
+                              }}
+                            >
+                              {artifact.content}
+                            </pre>
+                          </article>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {latestValidationTraces.length > 0 ? (
+                    <div>
+                      <div style={{ ...mutedTextStyle, marginBottom: 8 }}>
+                        Validation trace{" "}
+                        {latestValidationTaskId
+                          ? `for task ${latestValidationTaskId}`
+                          : ""}
+                      </div>
+                      <div style={{ display: "grid", gap: 8 }}>
+                        {latestValidationTraces.map((trace) => (
                           <div
                             key={trace.id}
                             style={{

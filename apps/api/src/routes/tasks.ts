@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   ApprovalRequest,
+  PatchArtifact,
   Repository,
   Task,
   TaskTrace,
@@ -50,6 +51,11 @@ router.get("/tasks/:taskId", async (req, res, next) => {
       order: [["createdAt", "ASC"]],
     });
 
+    const artifacts = await PatchArtifact.findAll({
+      where: { taskId: task.id },
+      order: [["createdAt", "ASC"]],
+    });
+
     const repository = task.primaryRepositoryId
       ? await Repository.findByPk(task.primaryRepositoryId)
       : null;
@@ -60,6 +66,7 @@ router.get("/tasks/:taskId", async (req, res, next) => {
       repository,
       traces,
       approvals,
+      artifacts,
     });
   } catch (error) {
     next(error);

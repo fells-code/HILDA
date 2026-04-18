@@ -12,5 +12,8 @@
         "typecheck": "tsc -p tsconfig.json --noEmit",
         "test": "echo shared-ok",
         "clean": "rm -rf dist"
+    },
+    "devDependencies": {
+        "@types/node": "^22.19.17"
     }
 }

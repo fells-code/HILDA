@@ -1,4 +1,5 @@
 import { ApprovalRequest } from "./ApprovalRequest";
+import { PatchArtifact } from "./PatchArtifact";
 import { Repository } from "./Repository";
 import { RepositoryIndex } from "./RepositoryIndex";
 import { Task } from "./Task";
@@ -107,6 +108,26 @@ export function initModels(): void {
   ApprovalRequest.belongsTo(Task, {
     foreignKey: "taskId",
     as: "task",
+  });
+
+  Task.hasMany(PatchArtifact, {
+    foreignKey: "taskId",
+    as: "artifacts",
+  });
+
+  PatchArtifact.belongsTo(Task, {
+    foreignKey: "taskId",
+    as: "task",
+  });
+
+  Repository.hasMany(PatchArtifact, {
+    foreignKey: "repositoryId",
+    as: "artifacts",
+  });
+
+  PatchArtifact.belongsTo(Repository, {
+    foreignKey: "repositoryId",
+    as: "repository",
   });
 
   initialized = true;

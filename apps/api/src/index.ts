@@ -23,6 +23,9 @@ async function start() {
   const questionsRouter = (await import("./routes/questions")).default;
   const tasksRouter = (await import("./routes/tasks")).default;
   const plansRouter = (await import("./routes/plans")).default;
+  const patchesRouter = (await import("./routes/patches")).default;
+  const validationsRouter = (await import("./routes/validations")).default;
+  const askRouter = (await import("./routes/ask")).default;
 
   initModels();
   await connectDatabase();
@@ -60,6 +63,9 @@ async function start() {
   app.use("/api", questionsRouter);
   app.use("/api", tasksRouter);
   app.use("/api", plansRouter);
+  app.use("/api", patchesRouter);
+  app.use("/api", validationsRouter);
+  app.use("/api", askRouter);
 
   app.use(
     (

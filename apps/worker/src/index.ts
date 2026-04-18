@@ -1,6 +1,10 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
+import {
+  formatRepositoryOverviewSummary,
+  generateRepositoryOverview,
+} from "@hilda/shared";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -9,7 +13,6 @@ dotenv.config({
   path: path.resolve(__dirname, "../../../.env"),
 });
 
-import { buildRepositorySummary, scanRepository } from "./lib/scanRepository";
 import { getRepositoryWorkingPath } from "./lib/repoPaths";
 import { syncRepository } from "./lib/syncRepository";
 
@@ -48,8 +51,8 @@ async function processOneRepository(): Promise<boolean> {
       repository.defaultBranch,
     );
 
-    const scan = await scanRepository(workingPath);
-    const summary = buildRepositorySummary(scan);
+    const overview = await generateRepositoryOverview(workingPath);
+    const summary = formatRepositoryOverviewSummary(overview);
 
     await markRepositoryIndexed(repository.id, summary, commitSha);
 

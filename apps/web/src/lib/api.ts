@@ -1,3 +1,5 @@
+const API_BASE_URL = "/api";
+
 export interface Workspace {
   id: string;
   name: string;
@@ -34,6 +36,10 @@ export interface QuestionMatch {
   path: string;
   score: number;
   snippet: string;
+  lineStart: number;
+  lineEnd: number;
+  chunkId: string;
+  reasons: string[];
 }
 
 export interface TaskTrace {
@@ -65,7 +71,62 @@ export interface ApprovalRequest {
   updatedAt: string;
 }
 
-const API_BASE_URL = "/api";
+export interface PatchArtifact {
+  id: string;
+  taskId: string;
+  repositoryId: string;
+  artifactType: "patch" | "validation_report";
+  title: string;
+  content: string;
+  metadataJson: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function createPatch(payload: {
+  repositoryId: string;
+  approvedPlanTaskId: string;
+  prompt: string;
+  evidence: QuestionMatch[];
+}): Promise<{
+  ok: true;
+  taskId: string;
+  approvalRequestId: string;
+  artifact: PatchArtifact;
+}> {
+  return request("/patches", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updatePatchApprovalRequest(
+  approvalRequestId: string,
+  payload: { status: "approved" | "rejected" },
+): Promise<{
+  ok: true;
+  approval: ApprovalRequest;
+}> {
+  return request(`/patch-approval-requests/${approvalRequestId}`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function createValidation(payload: {
+  repositoryId: string;
+  patchTaskId: string;
+  testCommand?: string;
+}): Promise<{
+  ok: true;
+  taskId: string;
+  artifact: PatchArtifact;
+}> {
+  return request("/validations", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
 
 export async function createPlan(payload: {
   repositoryId: string;
@@ -113,6 +174,7 @@ export async function getTask(taskId: string): Promise<{
   repository: Repository | null;
   traces: TaskTrace[];
   approvals: ApprovalRequest[];
+  artifacts: PatchArtifact[];
 }> {
   return request(`/tasks/${taskId}`);
 }
@@ -196,4 +258,54 @@ export async function getRepositoryIndexStatus(repositoryId: string): Promise<{
   index: RepositoryIndex | null;
 }> {
   return request(`/repositories/${repositoryId}/index-status`);
+}
+
+export interface AnalysisResult {
+  title: string;
+  answer: string;
+  metrics?: Array<{
+    label: string;
+    value: string;
+  }>;
+  sections?: Array<{
+    title: string;
+    items: string[];
+  }>;
+  evidence: Array<{
+    label: string;
+    value: string;
+  }>;
+}
+
+export async function askRepository(payload: {
+  repositoryId: string;
+  prompt: string;
+}): Promise<
+  | {
+      ok: true;
+      taskId: string;
+      route: "repo_analysis";
+      analysisIntent: string;
+      repository: {
+        id: string;
+        name: string;
+      };
+      result: AnalysisResult;
+    }
+  | {
+      ok: true;
+      taskId: string;
+      route: "question";
+      repository: {
+        id: string;
+        name: string;
+      };
+      answer: string;
+      matches: QuestionMatch[];
+    }
+> {
+  return request("/ask", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
