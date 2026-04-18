@@ -10,11 +10,11 @@ export function Card({ title, subtitle, action, children }: CardProps) {
   return (
     <section
       style={{
-        border: "1px solid #e5e7eb",
+        border: "1px solid #262f3c",
         borderRadius: 16,
         padding: 20,
-        background: "#fff",
-        boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+        background: "#141922",
+        boxShadow: "0 10px 26px rgba(0,0,0,0.16)",
       }}
     >
       <div
@@ -40,7 +40,7 @@ export function Card({ title, subtitle, action, children }: CardProps) {
             <p
               style={{
                 margin: "8px 0 0",
-                color: "#6b7280",
+                color: "#8b98aa",
                 fontSize: 14,
               }}
             >

@@ -6,28 +6,28 @@ function getStatusStyles(status: string) {
   switch (status) {
     case "indexed":
       return {
-        background: "#dcfce7",
-        color: "#166534",
+        background: "#14261f",
+        color: "#86efac",
       };
     case "syncing":
       return {
-        background: "#dbeafe",
-        color: "#1d4ed8",
+        background: "#152235",
+        color: "#93c5fd",
       };
     case "queued":
       return {
-        background: "#fef3c7",
-        color: "#92400e",
+        background: "#2b2414",
+        color: "#fcd34d",
       };
     case "failed":
       return {
-        background: "#fee2e2",
-        color: "#991b1b",
+        background: "#2a1518",
+        color: "#fca5a5",
       };
     default:
       return {
-        background: "#e5e7eb",
-        color: "#374151",
+        background: "#202733",
+        color: "#cbd5e1",
       };
   }
 }

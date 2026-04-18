@@ -12,15 +12,18 @@ export function PlanSection({
       <div style={{ ...mutedTextStyle, marginBottom: 8 }}>{title}</div>
       <div
         style={{
-          border: "1px solid #e5e7eb",
+          border: "1px solid #262f3c",
           borderRadius: 12,
           padding: 12,
-          background: "#fff",
+          background: "#11161d",
         }}
       >
         <ul style={{ margin: 0, paddingLeft: 20 }}>
           {items.map((item) => (
-            <li key={item} style={{ marginBottom: 8, lineHeight: 1.5 }}>
+            <li
+              key={item}
+              style={{ marginBottom: 8, lineHeight: 1.5, color: "#d6dbe3" }}
+            >
               {item}
             </li>
           ))}
