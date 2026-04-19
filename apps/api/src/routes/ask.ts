@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { Repository, Task, TaskTrace, Workspace } from "@hilda/db";
-import { runAnalysisGraph, runQuestionGraph } from "@hilda/agents";
+import { runAnalysisGraph, runPlanGraph, runQuestionGraph } from "@hilda/agents";
 import { routePrompt } from "../lib/intentRouter";
 import type { AuthenticatedRequest } from "../middleware/devAuth";
 
@@ -119,6 +119,8 @@ router.post("/ask", async (req, res, next) => {
       input: {
         prompt: parsed.data.prompt,
         route: routed.route,
+        questionIntent: routed.questionIntent,
+        planIntent: routed.planIntent,
       },
     });
 
@@ -128,6 +130,8 @@ router.post("/ask", async (req, res, next) => {
       eventDataJson: {
         prompt: parsed.data.prompt,
         route: routed.route,
+        questionIntent: routed.questionIntent,
+        planIntent: routed.planIntent,
       },
     });
 
@@ -138,6 +142,7 @@ router.post("/ask", async (req, res, next) => {
         userId: authUser.id,
         repositoryId: repository.id,
         question: parsed.data.prompt,
+        intent: routed.questionIntent ?? "general",
         matches: [],
       });
 
@@ -155,9 +160,31 @@ router.post("/ask", async (req, res, next) => {
       return;
     }
 
-    res.status(400).json({
-      ok: false,
-      error: "Plan requests should currently use the dedicated planning flow",
+    const result = await runPlanGraph({
+      taskId: task.id,
+      workspaceId: workspace.id,
+      userId: authUser.id,
+      repositoryId: repository.id,
+      prompt: parsed.data.prompt,
+      matches: [],
+    });
+
+    res.json({
+      ok: true,
+      taskId: task.id,
+      route: "plan",
+      planIntent: routed.planIntent ?? "propose_change",
+      repository: {
+        id: repository.id,
+        name: result.repositoryName ?? repository.name,
+      },
+      approvalRequestId: result.approvalRequestId ?? "",
+      matches: result.matches ?? [],
+      plan: result.plan,
+      answer:
+        routed.planIntent === "implementation_request"
+          ? "I routed this into the implementation-planning workflow. HILDA still requires an explicit reviewed plan before making a change."
+          : "I routed this into the planning workflow and generated a change plan with supporting evidence.",
     });
   } catch (error) {
     if (task) {

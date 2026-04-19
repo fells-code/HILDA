@@ -14,6 +14,7 @@ export function createQuestionGraph() {
       repositoryId: null,
       repositoryName: null,
       question: null,
+      intent: null,
       repoPath: null,
       filesScanned: null,
       matches: {

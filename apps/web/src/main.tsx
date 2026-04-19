@@ -8,16 +8,18 @@ import {
   ApprovalRequest,
   askRepository,
   createPatch,
-  createPlan,
   createRepository,
   createValidation,
   createWorkspace,
+  deleteRepository,
   GeneratedPlan,
   getRepositoryIndexStatus,
+  getRepositoryMetadata,
   getTask,
   listRepositories,
   listWorkspaces,
   PatchArtifact,
+  RepositoryMetadata,
   TaskTrace,
   updateApprovalRequest,
   updatePatchApprovalRequest,
@@ -26,6 +28,14 @@ import {
   type RepositoryIndex,
   type Workspace,
 } from "./lib/api";
+
+interface ChatEntry {
+  id: string;
+  role: "user" | "assistant";
+  kind: "question" | "plan" | "patch" | "validation" | "system";
+  title?: string;
+  body: string;
+}
 
 function App() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
@@ -37,33 +47,34 @@ function App() {
   const [repositoryOverviewCache, setRepositoryOverviewCache] = useState<
     Record<string, AnalysisResult>
   >({});
-  const [overviewTaskByRepositoryId, setOverviewTaskByRepositoryId] = useState<
-    Record<string, string>
+  const [repositoryMetadataCache, setRepositoryMetadataCache] = useState<
+    Record<string, RepositoryMetadata>
   >({});
   const [loadingOverviewRepositoryId, setLoadingOverviewRepositoryId] =
     useState("");
+  const [loadingRepositoryMetadataId, setLoadingRepositoryMetadataId] =
+    useState("");
   const [loadingWorkspaces, setLoadingWorkspaces] = useState(true);
   const [loadingRepositories, setLoadingRepositories] = useState(false);
-  const [refreshingRepositories, setRefreshingRepositories] = useState(false);
   const [workspaceName, setWorkspaceName] = useState("");
   const [repositoryForm, setRepositoryForm] = useState({
+    provider: "github" as "github" | "local",
     name: "",
     defaultBranch: "main",
     cloneUrl: "",
+    localPath: "",
   });
   const [submittingWorkspace, setSubmittingWorkspace] = useState(false);
   const [submittingRepository, setSubmittingRepository] = useState(false);
+  const [deletingRepositoryId, setDeletingRepositoryId] = useState("");
   const [error, setError] = useState("");
   const [selectedRepositoryId, setSelectedRepositoryId] = useState("");
   const [question, setQuestion] = useState("");
   const [askingQuestion, setAskingQuestion] = useState(false);
   const [questionMatches, setQuestionMatches] = useState<QuestionMatch[]>([]);
-  const [questionRepositoryName, setQuestionRepositoryName] = useState("");
   const [questionAnswer, setQuestionAnswer] = useState("");
   const [latestTaskId, setLatestTaskId] = useState("");
   const [taskTraces, setTaskTraces] = useState<TaskTrace[]>([]);
-  const [planPrompt, setPlanPrompt] = useState("");
-  const [creatingPlan, setCreatingPlan] = useState(false);
   const [latestPlan, setLatestPlan] = useState<GeneratedPlan | null>(null);
   const [latestPlanTaskId, setLatestPlanTaskId] = useState("");
   const [latestPlanApprovalId, setLatestPlanApprovalId] = useState("");
@@ -93,6 +104,10 @@ function App() {
     TaskTrace[]
   >([]);
   const [validationTestCommand, setValidationTestCommand] = useState("");
+  const [activeWorkflowPanel, setActiveWorkflowPanel] = useState<
+    "idle" | "question" | "plan" | "patch" | "validation"
+  >("idle");
+  const [chatHistory, setChatHistory] = useState<ChatEntry[]>([]);
 
   const selectedWorkspace = useMemo(
     () =>
@@ -115,6 +130,89 @@ function App() {
   const selectedRepositoryOverview = selectedRepository
     ? repositoryOverviewCache[selectedRepository.id] ?? null
     : null;
+  const selectedRepositoryMetadata = selectedRepository
+    ? repositoryMetadataCache[selectedRepository.id] ?? null
+    : null;
+
+  const shouldPollRepositories = useMemo(
+    () =>
+      repositories.some((repository) => {
+        const index = repositoryIndexes[repository.id] ?? null;
+
+        return (
+          repository.status === "queued" ||
+          repository.status === "syncing" ||
+          index?.status === "queued" ||
+          index?.status === "syncing"
+        );
+      }),
+    [repositories, repositoryIndexes],
+  );
+
+  function repositoriesEqual(next: Repository[], current: Repository[]) {
+    if (next.length !== current.length) {
+      return false;
+    }
+
+    return next.every((repository, index) => {
+      const currentRepository = current[index];
+
+      return (
+        currentRepository &&
+        repository.id === currentRepository.id &&
+        repository.name === currentRepository.name &&
+        repository.defaultBranch === currentRepository.defaultBranch &&
+        repository.cloneUrl === currentRepository.cloneUrl &&
+        repository.localPath === currentRepository.localPath &&
+        repository.status === currentRepository.status &&
+        repository.updatedAt === currentRepository.updatedAt
+      );
+    });
+  }
+
+  function repositoryIndexesEqual(
+    next: Record<string, RepositoryIndex | null>,
+    current: Record<string, RepositoryIndex | null>,
+  ) {
+    const nextKeys = Object.keys(next);
+    const currentKeys = Object.keys(current);
+
+    if (nextKeys.length !== currentKeys.length) {
+      return false;
+    }
+
+    return nextKeys.every((key) => {
+      const nextIndex = next[key];
+      const currentIndex = current[key];
+
+      if (!nextIndex && !currentIndex) {
+        return true;
+      }
+
+      if (!nextIndex || !currentIndex) {
+        return false;
+      }
+
+      return (
+        nextIndex.id === currentIndex.id &&
+        nextIndex.status === currentIndex.status &&
+        nextIndex.summary === currentIndex.summary &&
+        nextIndex.commitSha === currentIndex.commitSha &&
+        nextIndex.indexedAt === currentIndex.indexedAt &&
+        nextIndex.updatedAt === currentIndex.updatedAt
+      );
+    });
+  }
+
+  function appendChatEntry(entry: Omit<ChatEntry, "id">) {
+    setChatHistory((current) => [
+      ...current,
+      {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        ...entry,
+      },
+    ]);
+  }
 
   async function loadWorkspaces() {
     setLoadingWorkspaces(true);
@@ -142,9 +240,7 @@ function App() {
   ) {
     const background = options?.background ?? false;
 
-    if (background) {
-      setRefreshingRepositories(true);
-    } else {
+    if (!background) {
       setLoadingRepositories(true);
     }
 
@@ -152,7 +248,11 @@ function App() {
 
     try {
       const response = await listRepositories(workspaceId);
-      setRepositories(response.repositories);
+      setRepositories((current) =>
+        repositoriesEqual(response.repositories, current)
+          ? current
+          : response.repositories,
+      );
 
       if (response.repositories.length === 0) {
         setSelectedRepositoryId("");
@@ -171,15 +271,17 @@ function App() {
         }),
       );
 
-      setRepositoryIndexes(Object.fromEntries(indexEntries));
+      const nextIndexes = Object.fromEntries(indexEntries);
+
+      setRepositoryIndexes((current) =>
+        repositoryIndexesEqual(nextIndexes, current) ? current : nextIndexes,
+      );
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to load repositories",
       );
     } finally {
-      if (background) {
-        setRefreshingRepositories(false);
-      } else {
+      if (!background) {
         setLoadingRepositories(false);
       }
     }
@@ -210,10 +312,6 @@ function App() {
           ...current,
           [repository.id]: response.result,
         }));
-        setOverviewTaskByRepositoryId((current) => ({
-          ...current,
-          [repository.id]: response.taskId,
-        }));
       }
     } catch (err) {
       setError(
@@ -224,12 +322,48 @@ function App() {
     }
   }
 
+  async function loadRepositoryMetadata(repository: Repository) {
+    if (
+      repositoryMetadataCache[repository.id] ||
+      loadingRepositoryMetadataId === repository.id
+    ) {
+      return;
+    }
+
+    setLoadingRepositoryMetadataId(repository.id);
+
+    try {
+      const response = await getRepositoryMetadata(repository.id);
+      setRepositoryMetadataCache((current) => ({
+        ...current,
+        [repository.id]: response.metadata,
+      }));
+    } catch {
+      setRepositoryMetadataCache((current) => ({
+        ...current,
+        [repository.id]: {
+          sourceType: repository.provider,
+          githubIssuesOpen: null,
+        },
+      }));
+    } finally {
+      setLoadingRepositoryMetadataId("");
+    }
+  }
+
   async function handleAskQuestion(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!selectedRepositoryId || !question.trim()) {
       return;
     }
+
+    const prompt = question.trim();
+    appendChatEntry({
+      role: "user",
+      kind: "question",
+      body: prompt,
+    });
 
     setAskingQuestion(true);
     setError("");
@@ -240,7 +374,7 @@ function App() {
     try {
       const response = await askRepository({
         repositoryId: selectedRepositoryId,
-        prompt: question.trim(),
+        prompt,
       });
 
       if (response.route === "repo_analysis") {
@@ -248,21 +382,48 @@ function App() {
           ...current,
           [selectedRepositoryId]: response.result,
         }));
-        setOverviewTaskByRepositoryId((current) => ({
-          ...current,
-          [selectedRepositoryId]: response.taskId,
-        }));
-        setQuestionRepositoryName(response.repository.name);
         setQuestionAnswer(
           "Updated the repository overview for this repo. Scroll up to the overview panel to review the latest summary.",
         );
+        appendChatEntry({
+          role: "assistant",
+          kind: "system",
+          title: "Repository overview refreshed",
+          body: response.result.answer,
+        });
         setQuestionMatches([]);
         setLatestTaskId(response.taskId);
+        setActiveWorkflowPanel("question");
+      } else if (response.route === "plan") {
+        setLatestPlan(response.plan);
+        setLatestPlanTaskId(response.taskId);
+        setLatestPlanApprovalId(response.approvalRequestId);
+        setLatestPlanMatches(response.matches);
+        setQuestionAnswer(response.answer);
+        appendChatEntry({
+          role: "assistant",
+          kind: "plan",
+          title: "Plan created",
+          body: response.plan.summary,
+        });
+        setQuestionMatches([]);
+        setLatestTaskId(response.taskId);
+        setActiveWorkflowPanel("plan");
+
+        const taskResponse = await getTask(response.taskId);
+        setLatestPlanTraces(taskResponse.traces);
+        setLatestPlanApprovals(taskResponse.approvals);
       } else {
         setQuestionMatches(response.matches);
-        setQuestionRepositoryName(response.repository.name);
         setQuestionAnswer(response.answer);
+        appendChatEntry({
+          role: "assistant",
+          kind: "question",
+          title: "Grounded answer",
+          body: response.answer,
+        });
         setLatestTaskId(response.taskId);
+        setActiveWorkflowPanel("question");
       }
 
       const taskResponse = await getTask(response.taskId);
@@ -273,37 +434,6 @@ function App() {
       );
     } finally {
       setAskingQuestion(false);
-    }
-  }
-
-  async function handleCreatePlan(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    if (!selectedRepositoryId || !planPrompt.trim()) {
-      return;
-    }
-
-    setCreatingPlan(true);
-    setError("");
-
-    try {
-      const response = await createPlan({
-        repositoryId: selectedRepositoryId,
-        prompt: planPrompt.trim(),
-      });
-
-      setLatestPlan(response.plan);
-      setLatestPlanTaskId(response.taskId);
-      setLatestPlanApprovalId(response.approvalRequestId);
-      setLatestPlanMatches(response.matches);
-
-      const taskResponse = await getTask(response.taskId);
-      setLatestPlanTraces(taskResponse.traces);
-      setLatestPlanApprovals(taskResponse.approvals);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create plan");
-    } finally {
-      setCreatingPlan(false);
     }
   }
 
@@ -350,6 +480,13 @@ function App() {
 
       setLatestPatchTaskId(response.taskId);
       setLatestPatchApprovalId(response.approvalRequestId);
+      setActiveWorkflowPanel("patch");
+      appendChatEntry({
+        role: "assistant",
+        kind: "patch",
+        title: "Patch draft ready",
+        body: "HILDA generated a reviewable patch diff for the approved plan.",
+      });
 
       const taskResponse = await getTask(response.taskId);
       setLatestPatchApprovals(taskResponse.approvals);
@@ -399,6 +536,15 @@ function App() {
       });
 
       setLatestValidationTaskId(response.taskId);
+      setActiveWorkflowPanel("validation");
+      appendChatEntry({
+        role: "assistant",
+        kind: "validation",
+        title: "Validation started",
+        body: validationTestCommand.trim()
+          ? `Running validation with: ${validationTestCommand.trim()}`
+          : "Running the default validation loop for the proposed patch.",
+      });
 
       const taskResponse = await getTask(response.taskId);
       setLatestValidationArtifacts(taskResponse.artifacts);
@@ -451,16 +597,25 @@ function App() {
     try {
       await createRepository({
         workspaceId: selectedWorkspaceId,
-        provider: "github",
+        provider: repositoryForm.provider,
         name: repositoryForm.name.trim(),
         defaultBranch: repositoryForm.defaultBranch.trim() || "main",
-        cloneUrl: repositoryForm.cloneUrl.trim() || null,
+        cloneUrl:
+          repositoryForm.provider === "github"
+            ? repositoryForm.cloneUrl.trim() || null
+            : null,
+        localPath:
+          repositoryForm.provider === "local"
+            ? repositoryForm.localPath.trim() || null
+            : null,
       });
 
       setRepositoryForm({
+        provider: "github",
         name: "",
         defaultBranch: "main",
         cloneUrl: "",
+        localPath: "",
       });
 
       await loadRepositories(selectedWorkspaceId);
@@ -470,6 +625,54 @@ function App() {
       );
     } finally {
       setSubmittingRepository(false);
+    }
+  }
+
+  async function handleDeleteRepository(repository: Repository) {
+    const confirmed = window.confirm(
+      `Delete ${repository.name} from ${selectedWorkspace?.name ?? "this workspace"}? This will remove its indexed data, tasks, traces, artifacts, and local clone.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingRepositoryId(repository.id);
+    setError("");
+
+    try {
+      await deleteRepository(repository.id);
+
+      setRepositories((current) =>
+        current.filter((item) => item.id !== repository.id),
+      );
+      setRepositoryIndexes((current) => {
+        const next = { ...current };
+        delete next[repository.id];
+        return next;
+      });
+      setRepositoryOverviewCache((current) => {
+        const next = { ...current };
+        delete next[repository.id];
+        return next;
+      });
+      setRepositoryMetadataCache((current) => {
+        const next = { ...current };
+        delete next[repository.id];
+        return next;
+      });
+      if (selectedRepositoryId === repository.id) {
+        const remainingRepositories = repositories.filter(
+          (item) => item.id !== repository.id,
+        );
+        setSelectedRepositoryId(remainingRepositories[0]?.id ?? "");
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to delete repository",
+      );
+    } finally {
+      setDeletingRepositoryId("");
     }
   }
 
@@ -487,17 +690,22 @@ function App() {
 
     void loadRepositories(selectedWorkspaceId);
 
+    if (!shouldPollRepositories) {
+      return;
+    }
+
     const interval = window.setInterval(() => {
       void loadRepositories(selectedWorkspaceId, { background: true });
     }, 5000);
 
     return () => window.clearInterval(interval);
-  }, [selectedWorkspaceId]);
+  }, [selectedWorkspaceId, shouldPollRepositories]);
 
   useEffect(() => {
     setQuestion("");
     setQuestionMatches([]);
     setQuestionAnswer("");
+    setChatHistory([]);
     setTaskTraces([]);
     setLatestTaskId("");
     setLatestPlan(null);
@@ -515,6 +723,7 @@ function App() {
     setLatestValidationArtifacts([]);
     setLatestValidationTraces([]);
     setValidationTestCommand("");
+    setActiveWorkflowPanel("idle");
   }, [selectedRepositoryId]);
 
   useEffect(() => {
@@ -523,7 +732,13 @@ function App() {
     }
 
     void loadRepositoryOverview(selectedRepository);
-  }, [selectedRepository, repositoryIndexes, repositoryOverviewCache]);
+    void loadRepositoryMetadata(selectedRepository);
+  }, [
+    selectedRepository,
+    repositoryIndexes,
+    repositoryOverviewCache,
+    repositoryMetadataCache,
+  ]);
 
   return (
     <main style={pageStyle}>
@@ -624,17 +839,13 @@ function App() {
               <p style={mutedTextStyle}>No repositories in this workspace yet.</p>
             ) : (
               <div style={{ display: "grid", gap: 10 }}>
-                {refreshingRepositories ? (
-                  <div style={mutedTextStyle}>Refreshing repository statuses...</div>
-                ) : null}
                 {repositories.map((repository) => {
                   const index = repositoryIndexes[repository.id] ?? null;
                   const isSelected = repository.id === selectedRepositoryId;
 
                   return (
-                    <button
+                    <article
                       key={repository.id}
-                      onClick={() => setSelectedRepositoryId(repository.id)}
                       style={{
                         ...sidebarButtonStyle,
                         border: isSelected
@@ -643,21 +854,49 @@ function App() {
                         background: isSelected ? "#162127" : "#141922",
                       }}
                     >
-                      <div
+                      <button
+                        onClick={() => setSelectedRepositoryId(repository.id)}
                         style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          gap: 12,
-                          alignItems: "center",
+                          border: "none",
+                          background: "transparent",
+                          padding: 0,
+                          width: "100%",
+                          textAlign: "left",
+                          color: "inherit",
+                          cursor: "pointer",
                         }}
                       >
-                        <div style={{ fontWeight: 700 }}>{repository.name}</div>
-                        <StatusBadge status={repository.status} />
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            gap: 12,
+                            alignItems: "center",
+                          }}
+                        >
+                          <div style={{ fontWeight: 700 }}>
+                            {repository.name}
+                          </div>
+                          <StatusBadge status={repository.status} />
+                        </div>
+                        <div style={{ ...mutedTextStyle, marginTop: 6 }}>
+                          {repository.provider === "local"
+                            ? `Local directory • ${index?.status ?? "No index"}`
+                            : `${repository.defaultBranch} • ${index?.status ?? "No index"}`}
+                        </div>
+                      </button>
+                      <div style={{ marginTop: 10, display: "flex" }}>
+                        <button
+                          onClick={() => void handleDeleteRepository(repository)}
+                          disabled={deletingRepositoryId === repository.id}
+                          style={dangerButtonStyle}
+                        >
+                          {deletingRepositoryId === repository.id
+                            ? "Deleting..."
+                            : "Delete"}
+                        </button>
                       </div>
-                      <div style={{ ...mutedTextStyle, marginTop: 6 }}>
-                        {repository.defaultBranch} • {index?.status ?? "No index"}
-                      </div>
-                    </button>
+                    </article>
                   );
                 })}
               </div>
@@ -672,6 +911,20 @@ function App() {
               onSubmit={handleCreateRepository}
               style={{ display: "grid", gap: 12 }}
             >
+              <select
+                value={repositoryForm.provider}
+                onChange={(event) =>
+                  setRepositoryForm((current) => ({
+                    ...current,
+                    provider: event.target.value as "github" | "local",
+                  }))
+                }
+                style={inputStyle}
+                disabled={!selectedWorkspace}
+              >
+                <option value="github">GitHub repository</option>
+                <option value="local">Local directory</option>
+              </select>
               <input
                 value={repositoryForm.name}
                 onChange={(event) =>
@@ -684,30 +937,47 @@ function App() {
                 style={inputStyle}
                 disabled={!selectedWorkspace}
               />
-              <input
-                value={repositoryForm.defaultBranch}
-                onChange={(event) =>
-                  setRepositoryForm((current) => ({
-                    ...current,
-                    defaultBranch: event.target.value,
-                  }))
-                }
-                placeholder="main"
-                style={inputStyle}
-                disabled={!selectedWorkspace}
-              />
-              <input
-                value={repositoryForm.cloneUrl}
-                onChange={(event) =>
-                  setRepositoryForm((current) => ({
-                    ...current,
-                    cloneUrl: event.target.value,
-                  }))
-                }
-                placeholder="https://github.com/org/repo.git"
-                style={inputStyle}
-                disabled={!selectedWorkspace}
-              />
+              {repositoryForm.provider === "github" ? (
+                <>
+                  <input
+                    value={repositoryForm.defaultBranch}
+                    onChange={(event) =>
+                      setRepositoryForm((current) => ({
+                        ...current,
+                        defaultBranch: event.target.value,
+                      }))
+                    }
+                    placeholder="main"
+                    style={inputStyle}
+                    disabled={!selectedWorkspace}
+                  />
+                  <input
+                    value={repositoryForm.cloneUrl}
+                    onChange={(event) =>
+                      setRepositoryForm((current) => ({
+                        ...current,
+                        cloneUrl: event.target.value,
+                      }))
+                    }
+                    placeholder="https://github.com/org/repo.git"
+                    style={inputStyle}
+                    disabled={!selectedWorkspace}
+                  />
+                </>
+              ) : (
+                <input
+                  value={repositoryForm.localPath}
+                  onChange={(event) =>
+                    setRepositoryForm((current) => ({
+                      ...current,
+                      localPath: event.target.value,
+                    }))
+                  }
+                  placeholder="/absolute/path/to/local/repository"
+                  style={inputStyle}
+                  disabled={!selectedWorkspace}
+                />
+              )}
               <button
                 type="submit"
                 disabled={!selectedWorkspace || submittingRepository}
@@ -746,337 +1016,675 @@ function App() {
             </Card>
           ) : (
             <>
-              <section style={heroStyle}>
-                <div>
-                  <div style={eyebrowStyle}>
-                    {selectedWorkspace.name} / Active repository
+              <section style={repoHeaderCardStyle}>
+                <div style={{ display: "grid", gap: 14, minWidth: 0 }}>
+                  <div>
+                    <div style={eyebrowStyle}>
+                      {selectedWorkspace.name} / active repository
+                    </div>
+                    <div style={repoTitleRowStyle}>
+                      <h2 style={{ margin: 0, fontSize: 30 }}>
+                        {selectedRepository.name}
+                      </h2>
+                      <StatusBadge status={selectedRepository.status} />
+                    </div>
                   </div>
-                  <h2 style={{ margin: "8px 0 0", fontSize: 32 }}>
-                    {selectedRepository.name}
-                  </h2>
-                  <p style={{ margin: "10px 0 0", color: "#94a3b8" }}>
-                    Branch {selectedRepository.defaultBranch}
-                    {selectedRepository.cloneUrl
-                      ? ` • ${selectedRepository.cloneUrl}`
-                      : ""}
+
+                  <div style={repoMetaRowStyle}>
+                    <span style={heroMetaPillStyle}>
+                      {selectedRepository.provider === "github"
+                        ? "GitHub repo"
+                        : "Local directory"}
+                    </span>
+                    <span style={heroMetaPillStyle}>
+                      Branch {selectedRepository.defaultBranch}
+                    </span>
+                    <span style={heroMetaPillStyle}>
+                      Last indexed{" "}
+                      {selectedRepositoryIndex?.indexedAt
+                        ? new Date(
+                            selectedRepositoryIndex.indexedAt,
+                          ).toLocaleString()
+                        : "not yet"}
+                    </span>
+                  </div>
+
+                  <p style={repoDescriptionStyle}>
+                    {extractRepositoryDescription(
+                      selectedRepositoryOverview,
+                      loadingOverviewRepositoryId === selectedRepository.id,
+                    )}
                   </p>
+
+                  <div style={repoChipRowStyle}>
+                    {extractLanguageNames(selectedRepositoryOverview).map(
+                      (language) => (
+                        <span key={`language-${language}`} style={headerChipStyle}>
+                          {language}
+                        </span>
+                      ),
+                    )}
+
+                    {getOverviewMetric(selectedRepositoryOverview, "Files scanned") ? (
+                      <span style={headerChipStyle}>
+                        {getOverviewMetric(
+                          selectedRepositoryOverview,
+                          "Files scanned",
+                        )?.value} files
+                      </span>
+                    ) : null}
+
+                    {extractToolingNames(selectedRepositoryOverview).map((tool) => (
+                      <span key={`tool-${tool}`} style={headerChipStyle}>
+                        {tool}
+                      </span>
+                    ))}
+
+                    <span style={headerChipStyle}>
+                      Issues{" "}
+                      {formatIssueCount(
+                        selectedRepository,
+                        selectedRepositoryMetadata,
+                        loadingRepositoryMetadataId === selectedRepository.id,
+                      )}
+                    </span>
+                  </div>
                 </div>
-                <div style={{ display: "grid", gap: 10, justifyItems: "end" }}>
-                  <StatusBadge status={selectedRepository.status} />
-                  <div style={heroMetaStyle}>
-                    Indexed{" "}
-                    {selectedRepositoryIndex?.indexedAt
-                      ? new Date(
-                          selectedRepositoryIndex.indexedAt,
-                        ).toLocaleString()
-                      : "not yet"}
-                  </div>
-                  <div style={heroMetaStyle}>
-                    Overview{" "}
-                    {selectedRepositoryOverview
-                      ? "ready"
-                      : loadingOverviewRepositoryId === selectedRepository.id
-                        ? "loading"
-                        : "pending"}
-                  </div>
+
+                <div style={repoHeaderActionsStyle}>
+                  <button
+                    onClick={() => void handleDeleteRepository(selectedRepository)}
+                    disabled={deletingRepositoryId === selectedRepository.id}
+                    style={dangerButtonStyle}
+                  >
+                    {deletingRepositoryId === selectedRepository.id
+                      ? "Deleting..."
+                      : "Delete repository"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setRepositoryOverviewCache((current) => {
+                        const next = { ...current };
+                        delete next[selectedRepository.id];
+                        return next;
+                      });
+                      setRepositoryMetadataCache((current) => {
+                        const next = { ...current };
+                        delete next[selectedRepository.id];
+                        return next;
+                      });
+                      void loadRepositoryOverview(selectedRepository);
+                      void loadRepositoryMetadata(selectedRepository);
+                    }}
+                    disabled={selectedRepository.status !== "indexed"}
+                    style={secondaryButtonStyle}
+                  >
+                    Refresh repo context
+                  </button>
                 </div>
               </section>
 
-              <Card
-                title="Repository overview"
-                subtitle="Preloaded context for the selected repository."
-                action={
-                  selectedRepository.status === "indexed" ? (
-                    <button
-                      onClick={() => {
-                        setRepositoryOverviewCache((current) => {
-                          const next = { ...current };
-                          delete next[selectedRepository.id];
-                          return next;
-                        });
-                        void loadRepositoryOverview(selectedRepository);
-                      }}
-                      style={secondaryButtonStyle}
-                    >
-                      Refresh overview
-                    </button>
-                  ) : null
-                }
-              >
-                {selectedRepository.status !== "indexed" ? (
-                  <p style={mutedTextStyle}>
-                    This repository needs to finish indexing before HILDA can
-                    build a useful overview.
-                  </p>
-                ) : loadingOverviewRepositoryId === selectedRepository.id ? (
-                  <p style={mutedTextStyle}>Building repository overview...</p>
-                ) : selectedRepositoryOverview ? (
-                  <RepositoryOverviewPanel
-                    overview={selectedRepositoryOverview}
-                    summary={selectedRepositoryIndex?.summary ?? null}
-                  />
-                ) : (
-                  <p style={mutedTextStyle}>
-                    Overview not loaded yet. HILDA will fetch it automatically.
-                  </p>
-                )}
-              </Card>
+              <details style={detailsStyle}>
+                <summary style={detailsSummaryStyle}>
+                  Full repository overview
+                </summary>
+                <div style={detailsContentStyle}>
+                  {selectedRepository.status !== "indexed" ? (
+                    <p style={mutedTextStyle}>
+                      This repository needs to finish indexing before HILDA can
+                      build a useful overview.
+                    </p>
+                  ) : loadingOverviewRepositoryId === selectedRepository.id ? (
+                    <p style={mutedTextStyle}>Building repository overview...</p>
+                  ) : selectedRepositoryOverview ? (
+                    <RepositoryOverviewPanel
+                      overview={selectedRepositoryOverview}
+                      summary={selectedRepositoryIndex?.summary ?? null}
+                    />
+                  ) : (
+                    <p style={mutedTextStyle}>
+                      Overview not loaded yet. HILDA will fetch it automatically.
+                    </p>
+                  )}
+                </div>
+              </details>
 
-              <div style={twoColumnLayoutStyle}>
-                <Card
-                  title="Developer chat"
-                  subtitle="Ask grounded questions about the active repository."
-                >
-                  <form
-                    onSubmit={handleAskQuestion}
-                    style={{ display: "grid", gap: 12, marginBottom: 16 }}
-                  >
-                    <input
+              <section style={workspaceCanvasStyle}>
+                <div style={chatHistoryStyle}>
+                  {chatHistory.length === 0 ? (
+                    <div style={chatEmptyStateStyle}>
+                      <div style={{ fontSize: 18, fontWeight: 700 }}>
+                        Start a conversation with this repository
+                      </div>
+                      <div style={{ ...mutedTextStyle, maxWidth: 560 }}>
+                        Ask HILDA to understand the codebase, locate an
+                        implementation, debug a failure, or plan a change.
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={chatTimelineStyle}>
+                      {chatHistory.map((entry) => (
+                        <article
+                          key={entry.id}
+                          style={
+                            entry.role === "user"
+                              ? userChatBubbleStyle
+                              : assistantChatBubbleStyle
+                          }
+                        >
+                          <div style={chatMetaStyle}>
+                            {entry.role === "user" ? "You" : "HILDA"}
+                            {entry.title ? ` • ${entry.title}` : ""}
+                          </div>
+                          <div style={{ lineHeight: 1.7 }}>{entry.body}</div>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+
+                  <WorkflowPanel
+                    activeWorkflowPanel={activeWorkflowPanel}
+                    questionAnswer={questionAnswer}
+                    questionMatches={questionMatches}
+                    latestTaskId={latestTaskId}
+                    taskTraces={taskTraces}
+                    latestPlan={latestPlan}
+                    latestPlanApprovals={latestPlanApprovals}
+                    latestPlanMatches={latestPlanMatches}
+                    latestPlanTaskId={latestPlanTaskId}
+                    latestPlanTraces={latestPlanTraces}
+                    latestPatchArtifacts={latestPatchArtifacts}
+                    latestPatchApprovals={latestPatchApprovals}
+                    latestPatchTraces={latestPatchTraces}
+                    latestValidationArtifacts={latestValidationArtifacts}
+                    latestValidationTaskId={latestValidationTaskId}
+                    latestValidationTraces={latestValidationTraces}
+                    mutedTextStyle={mutedTextStyle}
+                    onApprovePlan={() => void handlePlanApproval("approved")}
+                    onRejectPlan={() => void handlePlanApproval("rejected")}
+                    onCreatePatch={() => void handleCreatePatch()}
+                    onApprovePatch={() => void handlePatchApproval("approved")}
+                    onRejectPatch={() => void handlePatchApproval("rejected")}
+                    onRunValidation={() => void handleRunValidation()}
+                    creatingPatch={creatingPatch}
+                    runningValidation={runningValidation}
+                    latestPatchTaskId={latestPatchTaskId}
+                    validationTestCommand={validationTestCommand}
+                    setValidationTestCommand={setValidationTestCommand}
+                  />
+                </div>
+
+                <form onSubmit={handleAskQuestion} style={composerShellStyle}>
+                  <div style={quickChipRowStyle}>
+                    <button
+                      type="button"
+                      style={quickChipStyle}
+                      onClick={() =>
+                        setQuestion("What is this repo and how is it structured?")
+                      }
+                    >
+                      Understand repo
+                    </button>
+                    <button
+                      type="button"
+                      style={quickChipStyle}
+                      onClick={() =>
+                        setQuestion("Where is authentication implemented?")
+                      }
+                    >
+                      Find implementation
+                    </button>
+                    <button
+                      type="button"
+                      style={quickChipStyle}
+                      onClick={() =>
+                        setQuestion("Why is this failing? Help me debug the issue.")
+                      }
+                    >
+                      Debug issue
+                    </button>
+                    <button
+                      type="button"
+                      style={quickChipStyle}
+                      onClick={() =>
+                        setQuestion("How would we add a new feature here?")
+                      }
+                    >
+                      Plan feature
+                    </button>
+                  </div>
+
+                  <div style={composerRowStyle}>
+                    <textarea
                       value={question}
                       onChange={(event) => setQuestion(event.target.value)}
-                      placeholder="Where is repository overview implemented?"
-                      style={inputStyle}
+                      placeholder="Ask about the repo, debug a failure, plan a feature, or request a change"
+                      style={composerTextareaStyle}
                       disabled={selectedRepository.status !== "indexed"}
+                      rows={3}
                     />
                     <button
                       type="submit"
                       disabled={
                         selectedRepository.status !== "indexed" || askingQuestion
                       }
-                      style={buttonStyle}
+                      style={composerSendButtonStyle}
                     >
-                      {askingQuestion ? "Searching..." : "Ask HILDA"}
+                      {askingQuestion ? "Working..." : "Send"}
                     </button>
-                  </form>
-
-                  {questionAnswer ? (
-                    <div style={highlightPanelStyle}>{questionAnswer}</div>
-                  ) : (
-                    <p style={mutedTextStyle}>
-                      Ask implementation, debugging, or architecture questions
-                      once the repository is indexed.
-                    </p>
-                  )}
-
-                  {questionMatches.length > 0 ? (
-                    <MatchList
-                      title={`Evidence from ${questionRepositoryName}`}
-                      matches={questionMatches}
-                    />
-                  ) : null}
-
-                  {latestTaskId && taskTraces.length > 0 ? (
-                    <TraceList
-                      title={`Trace for task ${latestTaskId}`}
-                      traces={taskTraces}
-                    />
-                  ) : null}
-                </Card>
-
-                <Card
-                  title="Plan a change"
-                  subtitle="Generate an approval-gated implementation plan for the active repository."
-                >
-                  <form
-                    onSubmit={handleCreatePlan}
-                    style={{ display: "grid", gap: 12, marginBottom: 16 }}
-                  >
-                    <input
-                      value={planPrompt}
-                      onChange={(event) => setPlanPrompt(event.target.value)}
-                      placeholder="Add semantic retrieval traces to the repo analysis flow"
-                      style={inputStyle}
-                      disabled={selectedRepository.status !== "indexed"}
-                    />
-                    <button
-                      type="submit"
-                      disabled={
-                        selectedRepository.status !== "indexed" || creatingPlan
-                      }
-                      style={buttonStyle}
-                    >
-                      {creatingPlan ? "Planning..." : "Create plan"}
-                    </button>
-                  </form>
-
-                  {!latestPlan ? (
-                    <p style={mutedTextStyle}>
-                      No plan yet. Start with a scoped request for the active
-                      repository.
-                    </p>
-                  ) : (
-                    <div style={{ display: "grid", gap: 16 }}>
-                      <div style={summaryPanelStyle}>
-                        <strong>{latestPlan.summary}</strong>
-                      </div>
-
-                      <PlanSection
-                        title="Assumptions"
-                        items={latestPlan.assumptions}
-                        mutedTextStyle={mutedTextStyle}
-                      />
-                      <PlanSection
-                        title="Impacted files"
-                        items={latestPlan.impactedFiles}
-                        mutedTextStyle={mutedTextStyle}
-                      />
-                      <PlanSection
-                        title="Steps"
-                        items={latestPlan.steps}
-                        mutedTextStyle={mutedTextStyle}
-                      />
-                      <PlanSection
-                        title="Risks"
-                        items={latestPlan.risks}
-                        mutedTextStyle={mutedTextStyle}
-                      />
-                      <PlanSection
-                        title="Validation"
-                        items={latestPlan.validation}
-                        mutedTextStyle={mutedTextStyle}
-                      />
-
-                      {latestPlanMatches.length > 0 ? (
-                        <MatchList
-                          title="Supporting evidence"
-                          matches={latestPlanMatches}
-                        />
-                      ) : null}
-
-                      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                        <button
-                          onClick={() => void handlePlanApproval("approved")}
-                          style={buttonStyle}
-                        >
-                          Approve plan
-                        </button>
-                        <button
-                          onClick={() => void handlePlanApproval("rejected")}
-                          style={secondaryButtonStyle}
-                        >
-                          Reject plan
-                        </button>
-                      </div>
-
-                      {latestPlanApprovals.length > 0 ? (
-                        <ApprovalList approvals={latestPlanApprovals} />
-                      ) : null}
-
-                      {latestPlanTaskId && latestPlanTraces.length > 0 ? (
-                        <TraceList
-                          title={`Trace for task ${latestPlanTaskId}`}
-                          traces={latestPlanTraces}
-                        />
-                      ) : null}
-                    </div>
-                  )}
-                </Card>
-              </div>
-
-              <Card
-                title="Patch and validation"
-                subtitle="Turn an approved plan into a bounded patch artifact and run safe local checks."
-              >
-                {!latestPlan ||
-                latestPlanApprovals.every(
-                  (approval) => approval.status !== "approved",
-                ) ? (
-                  <p style={mutedTextStyle}>
-                    Approve a plan for this repository before drafting a patch.
-                  </p>
-                ) : (
-                  <div style={{ display: "grid", gap: 16 }}>
-                    <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                      <button
-                        onClick={() => void handleCreatePatch()}
-                        disabled={creatingPatch}
-                        style={buttonStyle}
-                      >
-                        {creatingPatch
-                          ? "Drafting patch..."
-                          : "Create patch draft"}
-                      </button>
-                    </div>
-
-                    {latestPatchArtifacts.length > 0 ? (
-                      <ArtifactList
-                        title="Patch artifacts"
-                        artifacts={latestPatchArtifacts}
-                      />
-                    ) : null}
-
-                    {latestPatchApprovals.length > 0 ? (
-                      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                        <button
-                          onClick={() => void handlePatchApproval("approved")}
-                          style={buttonStyle}
-                        >
-                          Approve patch
-                        </button>
-                        <button
-                          onClick={() => void handlePatchApproval("rejected")}
-                          style={secondaryButtonStyle}
-                        >
-                          Reject patch
-                        </button>
-                      </div>
-                    ) : null}
-
-                    {latestPatchApprovals.length > 0 ? (
-                      <ApprovalList approvals={latestPatchApprovals} />
-                    ) : null}
-
-                    {latestPatchTraces.length > 0 ? (
-                      <TraceList title="Patch trace" traces={latestPatchTraces} />
-                    ) : null}
-
-                    {latestPatchTaskId ? (
-                      <div style={{ display: "grid", gap: 12 }}>
-                        <input
-                          value={validationTestCommand}
-                          onChange={(event) =>
-                            setValidationTestCommand(event.target.value)
-                          }
-                          placeholder="Optional test command, e.g. pnpm test auth"
-                          style={inputStyle}
-                        />
-                        <button
-                          onClick={() => void handleRunValidation()}
-                          disabled={runningValidation}
-                          style={buttonStyle}
-                        >
-                          {runningValidation
-                            ? "Running validation..."
-                            : "Run validation"}
-                        </button>
-                      </div>
-                    ) : null}
-
-                    {latestValidationArtifacts.length > 0 ? (
-                      <ArtifactList
-                        title="Validation reports"
-                        artifacts={latestValidationArtifacts}
-                      />
-                    ) : null}
-
-                    {latestValidationTraces.length > 0 ? (
-                      <TraceList
-                        title={
-                          latestValidationTaskId
-                            ? `Validation trace for task ${latestValidationTaskId}`
-                            : "Validation trace"
-                        }
-                        traces={latestValidationTraces}
-                      />
-                    ) : null}
                   </div>
-                )}
-              </Card>
+                </form>
+              </section>
             </>
           )}
         </section>
       </div>
     </main>
+  );
+}
+
+function getOverviewSection(
+  overview: AnalysisResult | null,
+  title: string,
+) {
+  return overview?.sections?.find((section) => section.title === title) ?? null;
+}
+
+function getOverviewMetric(
+  overview: AnalysisResult | null,
+  label: string,
+) {
+  return overview?.metrics?.find((metric) => metric.label === label) ?? null;
+}
+
+function extractDetectedItems(line: string): string[] {
+  const [, value] = line.split(":");
+  if (!value) {
+    return [];
+  }
+
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function extractLanguageNames(overview: AnalysisResult | null): string[] {
+  const section = getOverviewSection(overview, "Languages");
+
+  if (!section) {
+    return [];
+  }
+
+  return section.items
+    .map((item) => item.split(":")[0]?.trim())
+    .filter(Boolean)
+    .slice(0, 4) as string[];
+}
+
+function extractToolingNames(overview: AnalysisResult | null): string[] {
+  const section = getOverviewSection(overview, "Frameworks and tooling");
+  const detectedLine = section?.items.find((item) => item.startsWith("Detected:"));
+
+  return detectedLine ? extractDetectedItems(detectedLine).slice(0, 4) : [];
+}
+
+function extractRepositoryDescription(
+  overview: AnalysisResult | null,
+  isLoading: boolean,
+): string {
+  const purpose = getOverviewSection(overview, "Purpose")?.items[0];
+
+  if (purpose) {
+    return purpose;
+  }
+
+  if (isLoading) {
+    return "Building a repository summary from package manifests, code structure, and repo signals...";
+  }
+
+  return "No repository summary yet. HILDA will fill this in as soon as indexing and overview generation are complete.";
+}
+
+function formatIssueCount(
+  repository: Repository,
+  metadata: RepositoryMetadata | null,
+  isLoading: boolean,
+): string {
+  if (repository.provider !== "github") {
+    return "local";
+  }
+
+  if (isLoading) {
+    return "loading";
+  }
+
+  return metadata?.githubIssuesOpen != null
+    ? String(metadata.githubIssuesOpen)
+    : "n/a";
+}
+
+function WorkflowPanel({
+  activeWorkflowPanel,
+  questionAnswer,
+  questionMatches,
+  latestTaskId,
+  taskTraces,
+  latestPlan,
+  latestPlanApprovals,
+  latestPlanMatches,
+  latestPlanTaskId,
+  latestPlanTraces,
+  latestPatchArtifacts,
+  latestPatchApprovals,
+  latestPatchTraces,
+  latestValidationArtifacts,
+  latestValidationTaskId,
+  latestValidationTraces,
+  mutedTextStyle,
+  onApprovePlan,
+  onRejectPlan,
+  onCreatePatch,
+  onApprovePatch,
+  onRejectPatch,
+  onRunValidation,
+  creatingPatch,
+  runningValidation,
+  latestPatchTaskId,
+  validationTestCommand,
+  setValidationTestCommand,
+}: {
+  activeWorkflowPanel: "idle" | "question" | "plan" | "patch" | "validation";
+  questionAnswer: string;
+  questionMatches: QuestionMatch[];
+  latestTaskId: string;
+  taskTraces: TaskTrace[];
+  latestPlan: GeneratedPlan | null;
+  latestPlanApprovals: ApprovalRequest[];
+  latestPlanMatches: QuestionMatch[];
+  latestPlanTaskId: string;
+  latestPlanTraces: TaskTrace[];
+  latestPatchArtifacts: PatchArtifact[];
+  latestPatchApprovals: ApprovalRequest[];
+  latestPatchTraces: TaskTrace[];
+  latestValidationArtifacts: PatchArtifact[];
+  latestValidationTaskId: string;
+  latestValidationTraces: TaskTrace[];
+  mutedTextStyle: React.CSSProperties;
+  onApprovePlan: () => void;
+  onRejectPlan: () => void;
+  onCreatePatch: () => void;
+  onApprovePatch: () => void;
+  onRejectPatch: () => void;
+  onRunValidation: () => void;
+  creatingPatch: boolean;
+  runningValidation: boolean;
+  latestPatchTaskId: string;
+  validationTestCommand: string;
+  setValidationTestCommand: React.Dispatch<React.SetStateAction<string>>;
+}) {
+  if (
+    activeWorkflowPanel === "idle" &&
+    !questionAnswer &&
+    !latestPlan &&
+    latestPatchArtifacts.length === 0 &&
+    latestValidationArtifacts.length === 0
+  ) {
+    return null;
+  }
+
+  const planApproved = latestPlanApprovals.some(
+    (approval) => approval.status === "approved",
+  );
+  const patchApproved = latestPatchApprovals.some(
+    (approval) => approval.status === "approved",
+  );
+
+  return (
+    <div style={workflowDockStyle}>
+      {activeWorkflowPanel === "question" ? (
+        <details style={detailsStyle} open>
+          <summary style={detailsSummaryStyle}>Latest answer</summary>
+          <div style={detailsContentStyle}>
+            {questionAnswer ? (
+              <div style={summaryPanelStyle}>
+                <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.7 }}>
+                  {questionAnswer}
+                </div>
+              </div>
+            ) : null}
+
+            {questionMatches.length > 0 ? (
+              <details style={detailsStyle}>
+                <summary style={detailsSummaryStyle}>
+                  Evidence and citations
+                </summary>
+                <div style={detailsContentStyle}>
+                  <MatchList
+                    title="Grounding retrieved for this answer"
+                    matches={questionMatches}
+                  />
+                </div>
+              </details>
+            ) : null}
+
+            {taskTraces.length > 0 ? (
+              <details style={detailsStyle}>
+                <summary style={detailsSummaryStyle}>
+                  Trace {latestTaskId ? `• ${latestTaskId}` : ""}
+                </summary>
+                <div style={detailsContentStyle}>
+                  <TraceList title="Task trace" traces={taskTraces} />
+                </div>
+              </details>
+            ) : null}
+          </div>
+        </details>
+      ) : null}
+
+      {latestPlan ? (
+        <details style={detailsStyle} open={activeWorkflowPanel === "plan"}>
+          <summary style={detailsSummaryStyle}>Plan review</summary>
+          <div style={detailsContentStyle}>
+            <div style={{ display: "grid", gap: 12 }}>
+              <div style={summaryPanelStyle}>
+                <div style={{ fontWeight: 700, marginBottom: 6 }}>
+                  {latestPlan.summary}
+                </div>
+                <div style={mutedTextStyle}>
+                  Task {latestPlanTaskId || "not available yet"}
+                </div>
+              </div>
+
+              {latestPlan.assumptions.length > 0 ? (
+                <PlanSection
+                  title="Assumptions"
+                  items={latestPlan.assumptions}
+                  mutedTextStyle={mutedTextStyle}
+                />
+              ) : null}
+              {latestPlan.impactedFiles.length > 0 ? (
+                <PlanSection
+                  title="Impacted files"
+                  items={latestPlan.impactedFiles}
+                  mutedTextStyle={mutedTextStyle}
+                />
+              ) : null}
+              {latestPlan.steps.length > 0 ? (
+                <PlanSection
+                  title="Implementation steps"
+                  items={latestPlan.steps}
+                  mutedTextStyle={mutedTextStyle}
+                />
+              ) : null}
+              {latestPlan.risks.length > 0 ? (
+                <PlanSection
+                  title="Risks"
+                  items={latestPlan.risks}
+                  mutedTextStyle={mutedTextStyle}
+                />
+              ) : null}
+              {latestPlan.validation.length > 0 ? (
+                <PlanSection
+                  title="Validation"
+                  items={latestPlan.validation}
+                  mutedTextStyle={mutedTextStyle}
+                />
+              ) : null}
+
+              <div style={actionRowStyle}>
+                <button style={buttonStyle} onClick={onApprovePlan}>
+                  Approve plan
+                </button>
+                <button style={dangerButtonStyle} onClick={onRejectPlan}>
+                  Reject plan
+                </button>
+                <button
+                  style={secondaryButtonStyle}
+                  onClick={onCreatePatch}
+                  disabled={!planApproved || creatingPatch}
+                >
+                  {creatingPatch ? "Generating diff..." : "Create diff"}
+                </button>
+              </div>
+
+              {latestPlanApprovals.length > 0 ? (
+                <details style={detailsStyle}>
+                  <summary style={detailsSummaryStyle}>Approval history</summary>
+                  <div style={detailsContentStyle}>
+                    <ApprovalList approvals={latestPlanApprovals} />
+                  </div>
+                </details>
+              ) : null}
+
+              {latestPlanMatches.length > 0 ? (
+                <details style={detailsStyle}>
+                  <summary style={detailsSummaryStyle}>Plan evidence</summary>
+                  <div style={detailsContentStyle}>
+                    <MatchList
+                      title="Evidence used for planning"
+                      matches={latestPlanMatches}
+                    />
+                  </div>
+                </details>
+              ) : null}
+
+              {latestPlanTraces.length > 0 ? (
+                <details style={detailsStyle}>
+                  <summary style={detailsSummaryStyle}>Plan trace</summary>
+                  <div style={detailsContentStyle}>
+                    <TraceList title="Task trace" traces={latestPlanTraces} />
+                  </div>
+                </details>
+              ) : null}
+            </div>
+          </div>
+        </details>
+      ) : null}
+
+      {latestPatchArtifacts.length > 0 ? (
+        <details style={detailsStyle} open={activeWorkflowPanel === "patch"}>
+          <summary style={detailsSummaryStyle}>Diff review</summary>
+          <div style={detailsContentStyle}>
+            <div style={{ display: "grid", gap: 12 }}>
+              <div style={actionRowStyle}>
+                <button style={buttonStyle} onClick={onApprovePatch}>
+                  Approve diff
+                </button>
+                <button style={dangerButtonStyle} onClick={onRejectPatch}>
+                  Reject diff
+                </button>
+                <button
+                  style={secondaryButtonStyle}
+                  onClick={onRunValidation}
+                  disabled={!patchApproved || runningValidation}
+                >
+                  {runningValidation ? "Running validation..." : "Run validation"}
+                </button>
+              </div>
+
+              <ArtifactList title="Patch artifact" artifacts={latestPatchArtifacts} />
+
+              {latestPatchApprovals.length > 0 ? (
+                <details style={detailsStyle}>
+                  <summary style={detailsSummaryStyle}>Approval history</summary>
+                  <div style={detailsContentStyle}>
+                    <ApprovalList approvals={latestPatchApprovals} />
+                  </div>
+                </details>
+              ) : null}
+
+              {latestPatchTraces.length > 0 ? (
+                <details style={detailsStyle}>
+                  <summary style={detailsSummaryStyle}>
+                    Patch trace {latestPatchTaskId ? `• ${latestPatchTaskId}` : ""}
+                  </summary>
+                  <div style={detailsContentStyle}>
+                    <TraceList title="Task trace" traces={latestPatchTraces} />
+                  </div>
+                </details>
+              ) : null}
+            </div>
+          </div>
+        </details>
+      ) : null}
+
+      {latestPatchTaskId ? (
+        <details
+          style={detailsStyle}
+          open={activeWorkflowPanel === "validation"}
+        >
+          <summary style={detailsSummaryStyle}>Validation</summary>
+          <div style={detailsContentStyle}>
+            <div style={{ display: "grid", gap: 12 }}>
+              <div style={validationComposerStyle}>
+                <input
+                  value={validationTestCommand}
+                  onChange={(event) =>
+                    setValidationTestCommand(event.target.value)
+                  }
+                  placeholder="Optional test command, for example pnpm test -- --runInBand"
+                  style={inputStyle}
+                />
+                <button
+                  style={secondaryButtonStyle}
+                  onClick={onRunValidation}
+                  disabled={runningValidation}
+                >
+                  {runningValidation ? "Running..." : "Run"}
+                </button>
+              </div>
+
+              {latestValidationArtifacts.length > 0 ? (
+                <ArtifactList
+                  title="Validation report"
+                  artifacts={latestValidationArtifacts}
+                />
+              ) : (
+                <div style={mutedTextStyle}>
+                  No validation run yet for this diff.
+                </div>
+              )}
+
+              {latestValidationTraces.length > 0 ? (
+                <details style={detailsStyle}>
+                  <summary style={detailsSummaryStyle}>
+                    Validation trace{" "}
+                    {latestValidationTaskId ? `• ${latestValidationTaskId}` : ""}
+                  </summary>
+                  <div style={detailsContentStyle}>
+                    <TraceList
+                      title="Task trace"
+                      traces={latestValidationTraces}
+                    />
+                  </div>
+                </details>
+              ) : null}
+            </div>
+          </div>
+        </details>
+      ) : null}
+    </div>
   );
 }
 
@@ -1087,11 +1695,35 @@ function RepositoryOverviewPanel({
   overview: AnalysisResult;
   summary: string | null;
 }) {
+  const sections = overview.sections ?? [];
+  const purposeSection = sections.find((section) => section.title === "Purpose");
+  const architectureSection = sections.find(
+    (section) => section.title === "Architecture",
+  );
+  const toolingSection = sections.find(
+    (section) => section.title === "Frameworks and tooling",
+  );
+  const testingSection = sections.find(
+    (section) => section.title === "Testing and coverage",
+  );
+  const issuesSection = sections.find(
+    (section) => section.title === "Observed gaps and issues",
+  );
+  const milestonesSection = sections.find(
+    (section) => section.title === "Suggested milestones",
+  );
+
   return (
     <div style={{ display: "grid", gap: 14 }}>
-      <div style={highlightPanelStyle}>
-        <strong>{overview.title}</strong>
-        <div style={{ marginTop: 8 }}>{overview.answer}</div>
+      <div style={overviewSummaryCardStyle}>
+        <div>
+          <div style={overviewEyebrowStyle}>Repo snapshot</div>
+          <strong style={{ fontSize: 18 }}>{overview.title}</strong>
+        </div>
+        <div style={{ marginTop: 10, lineHeight: 1.7 }}>{overview.answer}</div>
+        {purposeSection?.items[0] ? (
+          <div style={overviewPurposeStyle}>{purposeSection.items[0]}</div>
+        ) : null}
       </div>
 
       {overview.metrics && overview.metrics.length > 0 ? (
@@ -1107,29 +1739,145 @@ function RepositoryOverviewPanel({
         </div>
       ) : null}
 
-      {overview.sections && overview.sections.length > 0 ? (
+      <div style={compactOverviewGridStyle}>
+        {architectureSection?.items.length ? (
+          <article style={sectionCardStyle}>
+            <div style={compactSectionTitleStyle}>Architecture</div>
+            <div style={{ display: "grid", gap: 6 }}>
+              {architectureSection.items.slice(0, 2).map((item, index) => (
+                <div
+                  key={`architecture-${index}-${item}`}
+                  style={sectionItemStyle}
+                >
+                  {item}
+                </div>
+              ))}
+            </div>
+          </article>
+        ) : null}
+
+        {toolingSection?.items.length ? (
+          <article style={sectionCardStyle}>
+            <div style={compactSectionTitleStyle}>Tooling</div>
+            <div style={{ display: "grid", gap: 6 }}>
+              {toolingSection.items.slice(0, 2).map((item, index) => (
+                <div key={`tooling-${index}-${item}`} style={sectionItemStyle}>
+                  {item}
+                </div>
+              ))}
+            </div>
+          </article>
+        ) : null}
+
+        {testingSection?.items.length ? (
+          <article style={sectionCardStyle}>
+            <div style={compactSectionTitleStyle}>Testing</div>
+            <div style={{ display: "grid", gap: 6 }}>
+              {testingSection.items.slice(0, 2).map((item, index) => (
+                <div key={`testing-${index}-${item}`} style={sectionItemStyle}>
+                  {item}
+                </div>
+              ))}
+            </div>
+          </article>
+        ) : null}
+      </div>
+
+      <div style={compactOverviewGridStyle}>
+        {issuesSection?.items.length ? (
+          <article style={sectionCardStyle}>
+            <div style={compactSectionTitleStyle}>Top gaps</div>
+            <div style={{ display: "grid", gap: 6 }}>
+              {issuesSection.items.slice(0, 3).map((item, index) => (
+                <div key={`issue-${index}-${item}`} style={sectionItemStyle}>
+                  {item}
+                </div>
+              ))}
+            </div>
+          </article>
+        ) : null}
+
+        {milestonesSection?.items.length ? (
+          <article style={sectionCardStyle}>
+            <div style={compactSectionTitleStyle}>Suggested next steps</div>
+            <div style={{ display: "grid", gap: 6 }}>
+              {milestonesSection.items.slice(0, 3).map((item, index) => (
+                <div
+                  key={`milestone-${index}-${item}`}
+                  style={sectionItemStyle}
+                >
+                  {item}
+                </div>
+              ))}
+            </div>
+          </article>
+        ) : null}
+      </div>
+
+      {sections.length > 0 ? (
         <div style={{ display: "grid", gap: 10 }}>
-          {overview.sections.map((section) => (
-            <article key={section.title} style={sectionCardStyle}>
-              <div style={{ fontWeight: 700, marginBottom: 8 }}>
-                {section.title}
-              </div>
-              <div style={{ display: "grid", gap: 6 }}>
-                {section.items.map((item, index) => (
-                  <div key={`${section.title}-${index}-${item}`} style={sectionItemStyle}>
-                    {item}
-                  </div>
+          <details style={detailsStyle}>
+            <summary style={detailsSummaryStyle}>Full repository overview</summary>
+            <div style={detailsContentStyle}>
+              <div style={{ display: "grid", gap: 10 }}>
+                {sections.map((section) => (
+                  <article key={section.title} style={sectionCardStyle}>
+                    <div style={compactSectionTitleStyle}>{section.title}</div>
+                    <div style={{ display: "grid", gap: 6 }}>
+                      {section.items.map((item, index) => (
+                        <div
+                          key={`${section.title}-${index}-${item}`}
+                          style={sectionItemStyle}
+                        >
+                          {item}
+                        </div>
+                      ))}
+                    </div>
+                  </article>
                 ))}
               </div>
-            </article>
-          ))}
-        </div>
-      ) : null}
+            </div>
+          </details>
 
-      {summary ? (
-        <div style={summaryPanelStyle}>
-          <div style={{ ...mutedTextStyle, marginBottom: 6 }}>Index summary</div>
-          <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{summary}</div>
+          {overview.evidence.length > 0 ? (
+            <details style={detailsStyle}>
+              <summary style={detailsSummaryStyle}>Evidence signals</summary>
+              <div style={detailsContentStyle}>
+                <div style={{ display: "grid", gap: 8 }}>
+                  {overview.evidence.map((item, index) => (
+                    <article
+                      key={`${item.label}-${item.value}-${index}`}
+                      style={sectionCardStyle}
+                    >
+                      <div style={{ ...mutedTextStyle, marginBottom: 4 }}>
+                        {item.label}
+                      </div>
+                      <div style={sectionItemStyle}>{item.value}</div>
+                    </article>
+                  ))}
+                </div>
+              </div>
+            </details>
+          ) : null}
+
+          {summary ? (
+            <details style={detailsStyle}>
+              <summary style={detailsSummaryStyle}>Index summary</summary>
+              <div style={detailsContentStyle}>
+                <div style={summaryPanelStyle}>
+                  <div
+                    style={{
+                      whiteSpace: "pre-wrap",
+                      lineHeight: 1.6,
+                      color: "#d6dbe3",
+                    }}
+                  >
+                    {summary}
+                  </div>
+                </div>
+              </div>
+            </details>
+          ) : null}
         </div>
       ) : null}
     </div>
@@ -1268,7 +2016,7 @@ const brandCardStyle: React.CSSProperties = {
   boxShadow: "0 12px 32px rgba(0, 0, 0, 0.22)",
 };
 
-const heroStyle: React.CSSProperties = {
+const repoHeaderCardStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   gap: 20,
@@ -1281,23 +2029,12 @@ const heroStyle: React.CSSProperties = {
   boxShadow: "0 12px 28px rgba(0, 0, 0, 0.2)",
 };
 
-const heroMetaStyle: React.CSSProperties = {
-  fontSize: 13,
-  color: "#94a3b8",
-};
-
 const eyebrowStyle: React.CSSProperties = {
   textTransform: "uppercase",
   letterSpacing: "0.12em",
   fontSize: 11,
   fontWeight: 700,
   color: "#7c8aa0",
-};
-
-const twoColumnLayoutStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "minmax(0, 1.05fr) minmax(0, 0.95fr)",
-  gap: 20,
 };
 
 const sidebarButtonStyle: React.CSSProperties = {
@@ -1340,6 +2077,16 @@ const secondaryButtonStyle: React.CSSProperties = {
   cursor: "pointer",
 };
 
+const dangerButtonStyle: React.CSSProperties = {
+  border: "1px solid #4c242b",
+  borderRadius: 12,
+  padding: "10px 14px",
+  background: "#241418",
+  color: "#fca5a5",
+  fontWeight: 600,
+  cursor: "pointer",
+};
+
 const mutedTextStyle: React.CSSProperties = {
   color: "#8b98aa",
   fontSize: 14,
@@ -1353,14 +2100,192 @@ const errorStyle: React.CSSProperties = {
   border: "1px solid #5a232a",
 };
 
-const highlightPanelStyle: React.CSSProperties = {
-  whiteSpace: "pre-wrap",
-  lineHeight: 1.6,
+const repoTitleRowStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 12,
+  alignItems: "center",
+  flexWrap: "wrap",
+  marginTop: 8,
+};
+
+const repoMetaRowStyle: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 10,
+};
+
+const heroMetaPillStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 6,
+  borderRadius: 999,
+  border: "1px solid #2a3340",
+  background: "#11161d",
+  color: "#c8d1dd",
+  padding: "8px 12px",
+  fontSize: 13,
+};
+
+const repoDescriptionStyle: React.CSSProperties = {
+  margin: 0,
+  color: "#cbd5e1",
+  lineHeight: 1.7,
+  maxWidth: 960,
+};
+
+const repoChipRowStyle: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 8,
+};
+
+const headerChipStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  borderRadius: 999,
+  background: "#10151c",
+  border: "1px solid #29313d",
+  color: "#d6dbe3",
+  padding: "7px 11px",
+  fontSize: 12,
+  fontWeight: 600,
+};
+
+const repoHeaderActionsStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 10,
+  justifyItems: "end",
+  minWidth: 180,
+};
+
+const workspaceCanvasStyle: React.CSSProperties = {
+  minHeight: "68vh",
+  border: "1px solid #262f3c",
+  borderRadius: 24,
+  background: "#141922",
+  boxShadow: "0 12px 28px rgba(0,0,0,0.16)",
+  display: "grid",
+  gridTemplateRows: "minmax(0, 1fr) auto",
+  overflow: "hidden",
+};
+
+const chatHistoryStyle: React.CSSProperties = {
+  padding: "28px 28px 16px",
+  minHeight: 480,
+  display: "grid",
+  alignContent: "start",
+  gap: 18,
+  overflowY: "auto",
+};
+
+const chatEmptyStateStyle: React.CSSProperties = {
+  minHeight: 420,
+  display: "grid",
+  placeItems: "center",
+  textAlign: "center",
+  gap: 10,
+  color: "#d6dbe3",
+};
+
+const chatTimelineStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 18,
+  alignContent: "start",
+};
+
+const userChatBubbleStyle: React.CSSProperties = {
+  justifySelf: "end",
+  width: "min(760px, 100%)",
+  borderRadius: 20,
+  padding: "16px 18px",
+  background: "#1b2330",
+  border: "1px solid #324156",
+  color: "#eff6ff",
+};
+
+const assistantChatBubbleStyle: React.CSSProperties = {
+  justifySelf: "start",
+  width: "min(880px, 100%)",
+  borderRadius: 20,
+  padding: "16px 18px",
+  background: "#10151c",
+  border: "1px solid #263140",
   color: "#e5e7eb",
-  background: "#151a22",
-  border: "1px solid #2a3240",
-  borderRadius: 16,
-  padding: 14,
+};
+
+const chatMetaStyle: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 700,
+  letterSpacing: "0.04em",
+  textTransform: "uppercase",
+  color: "#8b98aa",
+  marginBottom: 8,
+};
+
+const workflowDockStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 12,
+  alignContent: "start",
+};
+
+const composerShellStyle: React.CSSProperties = {
+  borderTop: "1px solid #262f3c",
+  background: "#11161d",
+  padding: 20,
+  display: "grid",
+  gap: 14,
+};
+
+const quickChipRowStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 8,
+  flexWrap: "wrap",
+};
+
+const quickChipStyle: React.CSSProperties = {
+  ...secondaryButtonStyle,
+  borderRadius: 999,
+  padding: "8px 12px",
+  fontSize: 13,
+};
+
+const composerRowStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr) auto",
+  gap: 14,
+  alignItems: "end",
+};
+
+const composerTextareaStyle: React.CSSProperties = {
+  width: "100%",
+  minHeight: 92,
+  resize: "vertical",
+  padding: "14px 16px",
+  borderRadius: 18,
+  border: "1px solid #2b3340",
+  background: "#0f141b",
+  color: "#e5e7eb",
+  fontSize: 15,
+  lineHeight: 1.6,
+};
+
+const composerSendButtonStyle: React.CSSProperties = {
+  ...buttonStyle,
+  minWidth: 120,
+  minHeight: 52,
+};
+
+const actionRowStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 10,
+  flexWrap: "wrap",
+};
+
+const validationComposerStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr) auto",
+  gap: 10,
+  alignItems: "center",
 };
 
 const summaryPanelStyle: React.CSSProperties = {
@@ -1368,6 +2293,48 @@ const summaryPanelStyle: React.CSSProperties = {
   border: "1px solid #262f3c",
   borderRadius: 14,
   padding: 14,
+};
+
+const overviewSummaryCardStyle: React.CSSProperties = {
+  border: "1px solid #263140",
+  borderRadius: 16,
+  padding: 16,
+  background: "#151a22",
+};
+
+const overviewEyebrowStyle: React.CSSProperties = {
+  ...eyebrowStyle,
+  color: "#8b98aa",
+  marginBottom: 4,
+};
+
+const overviewPurposeStyle: React.CSSProperties = {
+  marginTop: 12,
+  padding: 12,
+  borderRadius: 12,
+  background: "#10151c",
+  border: "1px solid #232c38",
+  color: "#d6dbe3",
+  lineHeight: 1.6,
+};
+
+const detailsStyle: React.CSSProperties = {
+  border: "1px solid #262f3c",
+  borderRadius: 14,
+  background: "#11161d",
+  overflow: "hidden",
+};
+
+const detailsSummaryStyle: React.CSSProperties = {
+  cursor: "pointer",
+  padding: 14,
+  fontWeight: 700,
+  color: "#d6dbe3",
+  listStyle: "none",
+};
+
+const detailsContentStyle: React.CSSProperties = {
+  padding: "0 14px 14px",
 };
 
 const metricGridStyle: React.CSSProperties = {
@@ -1381,6 +2348,18 @@ const metricCardStyle: React.CSSProperties = {
   borderRadius: 14,
   padding: 12,
   background: "#131820",
+};
+
+const compactOverviewGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+  gap: 10,
+};
+
+const compactSectionTitleStyle: React.CSSProperties = {
+  fontWeight: 700,
+  marginBottom: 8,
+  color: "#e5e7eb",
 };
 
 const sectionCardStyle: React.CSSProperties = {

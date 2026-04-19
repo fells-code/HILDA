@@ -11,10 +11,11 @@ export interface Workspace {
 export interface Repository {
   id: string;
   workspaceId: string;
-  provider: "github";
+  provider: "github" | "local";
   name: string;
   defaultBranch: string;
   cloneUrl: string | null;
+  localPath: string | null;
   externalId: string | null;
   status: "pending" | "queued" | "syncing" | "indexed" | "failed";
   createdAt: string;
@@ -30,6 +31,11 @@ export interface RepositoryIndex {
   indexedAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface RepositoryMetadata {
+  sourceType: "github" | "local";
+  githubIssuesOpen: number | null;
 }
 
 export interface QuestionMatch {
@@ -240,16 +246,33 @@ export async function listRepositories(
 
 export async function createRepository(payload: {
   workspaceId: string;
-  provider: "github";
+  provider: "github" | "local";
   name: string;
   defaultBranch: string;
   cloneUrl?: string | null;
+  localPath?: string | null;
   externalId?: string | null;
 }): Promise<{ ok: true; repository: Repository }> {
   return request("/repositories", {
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+export async function deleteRepository(repositoryId: string): Promise<{
+  ok: true;
+  deletedRepositoryId: string;
+}> {
+  return request(`/repositories/${repositoryId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function getRepositoryMetadata(repositoryId: string): Promise<{
+  ok: true;
+  metadata: RepositoryMetadata;
+}> {
+  return request(`/repositories/${repositoryId}/metadata`);
 }
 
 export async function getRepositoryIndexStatus(repositoryId: string): Promise<{
@@ -291,6 +314,20 @@ export async function askRepository(payload: {
         name: string;
       };
       result: AnalysisResult;
+    }
+  | {
+      ok: true;
+      taskId: string;
+      route: "plan";
+      planIntent: string;
+      repository: {
+        id: string;
+        name: string;
+      };
+      approvalRequestId: string;
+      matches: QuestionMatch[];
+      plan: GeneratedPlan;
+      answer: string;
     }
   | {
       ok: true;

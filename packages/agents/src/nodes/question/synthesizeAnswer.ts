@@ -5,7 +5,11 @@ import type { QuestionGraphState } from "../../state/questionState";
 export async function synthesizeAnswerNode(
   state: QuestionGraphState,
 ): Promise<Partial<QuestionGraphState>> {
-  const answer = summarizeMatches(state.question, state.matches);
+  const answer = summarizeMatches(
+    state.question,
+    state.matches,
+    state.intent ?? "general",
+  );
 
   await TaskTrace.create({
     taskId: state.taskId,

@@ -37,8 +37,10 @@ export interface Workspace {
 export interface Repository {
   id: Id;
   workspaceId: Id;
-  provider: "github";
+  provider: "github" | "local";
   name: string;
+  cloneUrl?: string | null;
+  localPath?: string | null;
   defaultBranch: string;
   status: RepositoryStatus;
   createdAt: string;

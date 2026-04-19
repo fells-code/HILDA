@@ -11,30 +11,37 @@ export function buildPatchDraft(
   plan: PatchPlanContext,
   evidence: PatchEvidence[],
 ): string {
-  const header = [
-    "--- a/PLACEHOLDER",
-    "+++ b/PLACEHOLDER",
-    "@@",
-    `# Draft patch for: ${prompt}`,
-    "# This is a proposed artifact only. It has not been applied.",
+  const lines = [
+    `# Proposed patch for: ${prompt}`,
     "",
-  ].join("\n");
-
-  const planLines = [
-    "# Plan summary:",
-    `# ${plan.summary}`,
+    "This fallback patch was generated without a code-editing model response.",
+    "Review the plan below and replace this proposal file with real code edits.",
     "",
-    "# Planned impacted files:",
-    ...plan.impactedFiles.map((file) => `# - ${file}`),
+    "Plan summary:",
+    plan.summary,
     "",
-    "# Proposed implementation steps:",
-    ...plan.steps.map((step, index) => `# ${index + 1}. ${step}`),
+    "Planned impacted files:",
+    ...plan.impactedFiles.map((file) => `- ${file}`),
     "",
-    "# Supporting evidence:",
+    "Proposed implementation steps:",
+    ...plan.steps.map((step, index) => `${index + 1}. ${step}`),
+    "",
+    "Supporting evidence:",
     ...evidence
       .slice(0, 5)
-      .map((match) => `# ${match.path} (score ${match.score})`),
-  ].join("\n");
+      .map((match) => `- ${match.path} (score ${match.score})`),
+    "",
+  ];
 
-  return `${header}\n${planLines}\n`;
+  const content = lines.map((line) => `+${line}`).join("\n");
+
+  return [
+    "diff --git a/HILDA_PATCH_PROPOSAL.md b/HILDA_PATCH_PROPOSAL.md",
+    "new file mode 100644",
+    "--- /dev/null",
+    "+++ b/HILDA_PATCH_PROPOSAL.md",
+    "@@ -0,0 +1,18 @@",
+    content,
+    "",
+  ].join("\n");
 }

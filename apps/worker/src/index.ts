@@ -13,8 +13,8 @@ dotenv.config({
   path: path.resolve(__dirname, "../../../.env"),
 });
 
-import { getRepositoryWorkingPath } from "./lib/repoPaths";
-import { syncRepository } from "./lib/syncRepository";
+import { getRepositorySourcePath, getRepositoryWorkingPath } from "./lib/repoPaths";
+import { inspectLocalRepository, syncRepository } from "./lib/syncRepository";
 
 async function processOneRepository(): Promise<boolean> {
   const db = await import("@hilda/db");
@@ -40,18 +40,31 @@ async function processOneRepository(): Promise<boolean> {
   try {
     await markRepositorySyncing(repository.id);
 
-    if (!repository.cloneUrl) {
-      throw new Error("Repository cloneUrl is required for indexing");
+    let repoPath: string;
+    let commitSha: string | null;
+
+    if (repository.provider === "local") {
+      if (!repository.localPath) {
+        throw new Error("Repository localPath is required for local indexing");
+      }
+
+      repoPath = getRepositorySourcePath(repository);
+      commitSha = await inspectLocalRepository(repoPath);
+    } else {
+      if (!repository.cloneUrl) {
+        throw new Error("Repository cloneUrl is required for GitHub indexing");
+      }
+
+      const workingPath = getRepositoryWorkingPath(repository.id);
+      commitSha = await syncRepository(
+        repository.cloneUrl,
+        workingPath,
+        repository.defaultBranch,
+      );
+      repoPath = getRepositorySourcePath(repository);
     }
 
-    const workingPath = getRepositoryWorkingPath(repository.id);
-    const commitSha = await syncRepository(
-      repository.cloneUrl,
-      workingPath,
-      repository.defaultBranch,
-    );
-
-    const overview = await generateRepositoryOverview(workingPath);
+    const overview = await generateRepositoryOverview(repoPath);
     const summary = formatRepositoryOverviewSummary(overview);
 
     await markRepositoryIndexed(repository.id, summary, commitSha);

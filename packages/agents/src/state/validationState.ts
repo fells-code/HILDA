@@ -15,6 +15,10 @@ export interface ValidationGraphState {
   testCommand?: string | null;
   repoPath?: string;
   packageJsonPath?: string;
+  patchArtifactId?: string;
+  patchDraft?: string;
+  patchImpactedFiles?: string[];
+  validationRepoPath?: string;
   commandsToRun: Array<{
     command: string;
     args: string[];

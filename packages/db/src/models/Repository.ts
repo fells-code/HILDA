@@ -13,11 +13,12 @@ export class Repository extends Model<
 > {
   declare id: CreationOptional<string>;
   declare workspaceId: string;
-  declare provider: "github";
+  declare provider: "github" | "local";
   declare externalId: string | null;
   declare name: string;
   declare defaultBranch: string;
   declare cloneUrl: string | null;
+  declare localPath: string | null;
   declare status: CreationOptional<
     "pending" | "queued" | "syncing" | "indexed" | "failed"
   >;
@@ -38,7 +39,7 @@ Repository.init(
       field: "workspace_id",
     },
     provider: {
-      type: DataTypes.ENUM("github"),
+      type: DataTypes.ENUM("github", "local"),
       allowNull: false,
     },
     externalId: {
@@ -59,6 +60,11 @@ Repository.init(
       type: DataTypes.TEXT,
       allowNull: true,
       field: "clone_url",
+    },
+    localPath: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      field: "local_path",
     },
     status: {
       type: DataTypes.ENUM("pending", "queued", "syncing", "indexed", "failed"),

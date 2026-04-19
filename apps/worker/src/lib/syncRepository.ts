@@ -27,3 +27,16 @@ export async function syncRepository(
     return (await repoGit.revparse(["HEAD"])).trim();
   }
 }
+
+export async function inspectLocalRepository(
+  localPath: string,
+): Promise<string | null> {
+  await fs.access(localPath);
+
+  try {
+    const git = simpleGit(localPath);
+    return (await git.revparse(["HEAD"])).trim();
+  } catch {
+    return null;
+  }
+}

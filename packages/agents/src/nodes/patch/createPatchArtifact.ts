@@ -17,6 +17,9 @@ export async function createPatchArtifactNode(
     metadataJson: {
       prompt: state.prompt,
       impactedFiles: state.impactedFiles,
+      patchMode: state.patchDraftMetadata?.mode ?? "fallback",
+      patchModel: state.patchDraftMetadata?.model ?? null,
+      candidateFiles: state.patchDraftMetadata?.candidateFiles ?? [],
     },
   });
 

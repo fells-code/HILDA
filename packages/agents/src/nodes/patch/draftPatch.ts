@@ -1,5 +1,5 @@
 import { TaskTrace } from "@hilda/db";
-import { buildPatchDraft } from "../../lib/buildPatchDraft";
+import { generatePatchDiff } from "../../lib/generatePatchDiff";
 import type { PatchGraphState } from "../../state/patchState";
 
 export async function draftPatchNode(
@@ -9,7 +9,11 @@ export async function draftPatchNode(
     throw new Error("Plan summary is missing from graph state");
   }
 
-  const patchDraft = buildPatchDraft(
+  if (!state.repoPath) {
+    throw new Error("Repository path is missing from graph state");
+  }
+
+  const result = await generatePatchDiff(
     state.prompt,
     {
       summary: state.planSummary,
@@ -17,6 +21,7 @@ export async function draftPatchNode(
       steps: state.steps,
     },
     state.evidence,
+    state.repoPath,
   );
 
   await TaskTrace.create({
@@ -25,10 +30,14 @@ export async function draftPatchNode(
     eventDataJson: {
       impactedFiles: state.impactedFiles,
       evidenceCount: state.evidence.length,
+      draftMode: result.metadata.mode,
+      model: result.metadata.model ?? null,
+      candidateFiles: result.metadata.candidateFiles,
     },
   });
 
   return {
-    patchDraft,
+    patchDraft: result.patchDraft,
+    patchDraftMetadata: result.metadata,
   };
 }

@@ -1,4 +1,5 @@
 import path from "node:path";
+import type { Repository } from "@hilda/db";
 import { getProjectRoot } from "./rootPaths";
 
 export function getRepoStorageRoot(): string {
@@ -13,4 +14,14 @@ export function getRepoStorageRoot(): string {
 
 export function getRepositoryWorkingPath(repositoryId: string): string {
   return path.resolve(getRepoStorageRoot(), repositoryId);
+}
+
+export function getRepositorySourcePath(
+  repository: Pick<Repository, "id" | "provider" | "localPath">,
+): string {
+  if (repository.provider === "local" && repository.localPath) {
+    return repository.localPath;
+  }
+
+  return getRepositoryWorkingPath(repository.id);
 }

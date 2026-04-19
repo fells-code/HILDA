@@ -1,3 +1,8 @@
+export type QuestionIntent =
+  | "general"
+  | "locate_implementation"
+  | "debug_failure";
+
 export interface QuestionMatch {
   path: string;
   score: number;
@@ -15,6 +20,7 @@ export interface QuestionGraphState {
   repositoryId: string;
   repositoryName?: string;
   question: string;
+  intent?: QuestionIntent;
   repoPath?: string;
   filesScanned?: number;
   matches: QuestionMatch[];

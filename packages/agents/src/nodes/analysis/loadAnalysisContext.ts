@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import { Repository, TaskTrace } from "@hilda/db";
-import { getRepositoryWorkingPath } from "../../lib/rootPaths";
+import { getRepositorySourcePath } from "../../lib/rootPaths";
 import type { AnalysisGraphState } from "../../state/analysisState";
 
 export async function loadAnalysisContextNode(
@@ -12,7 +12,7 @@ export async function loadAnalysisContextNode(
     throw new Error("Repository not found");
   }
 
-  const repoPath = getRepositoryWorkingPath(repository.id);
+  const repoPath = getRepositorySourcePath(repository);
 
   await fs.access(repoPath).catch(() => {
     throw new Error(`Indexed repository path not found: ${repoPath}`);

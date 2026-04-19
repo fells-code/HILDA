@@ -4,6 +4,12 @@ export interface PatchEvidence {
   snippet: string;
 }
 
+export interface PatchDraftMetadata {
+  mode: "llm" | "fallback";
+  model?: string;
+  candidateFiles: string[];
+}
+
 export interface PatchGraphState {
   taskId: string;
   workspaceId: string;
@@ -18,6 +24,7 @@ export interface PatchGraphState {
   steps: string[];
   evidence: PatchEvidence[];
   patchDraft?: string;
+  patchDraftMetadata?: PatchDraftMetadata;
   patchArtifactId?: string;
   approvalRequestId?: string;
   error?: string;
