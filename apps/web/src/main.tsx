@@ -1556,9 +1556,17 @@ function extractRepositoryDescription(
   isLoading: boolean,
 ): string {
   const purpose = getOverviewSection(overview, "Purpose")?.items[0];
+  const answer = overview?.answer
+    ?.split(/\n\s*\n|\n/)
+    .map((line) => line.trim())
+    .find(Boolean);
 
   if (purpose) {
     return purpose;
+  }
+
+  if (answer) {
+    return answer;
   }
 
   if (isLoading) {

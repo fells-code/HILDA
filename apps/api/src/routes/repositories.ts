@@ -10,7 +10,7 @@ import {
   Workspace,
 } from "@hilda/db";
 import { createRepositorySchema } from "../schemas/repository";
-import type { AuthenticatedRequest } from "../middleware/devAuth";
+import { requireAuthUser } from "../middleware/devAuth";
 import {
   fetchGitHubOpenIssuesCount,
   parseGitHubRepositoryRef,
@@ -22,7 +22,7 @@ const router = Router();
 
 router.get("/workspaces/:workspaceId/repositories", async (req, res, next) => {
   try {
-    const authUser = (req as AuthenticatedRequest).authUser;
+    const authUser = requireAuthUser(req);
     const { workspaceId } = req.params;
 
     const workspace = await Workspace.findOne({
@@ -56,7 +56,7 @@ router.get("/workspaces/:workspaceId/repositories", async (req, res, next) => {
 
 router.post("/repositories", async (req, res, next) => {
   try {
-    const authUser = (req as AuthenticatedRequest).authUser;
+    const authUser = requireAuthUser(req);
     const parsed = createRepositorySchema.safeParse(req.body);
 
     if (!parsed.success) {
@@ -113,7 +113,7 @@ router.post("/repositories", async (req, res, next) => {
 
 router.get("/repositories/:repositoryId/metadata", async (req, res, next) => {
   try {
-    const authUser = (req as AuthenticatedRequest).authUser;
+    const authUser = requireAuthUser(req);
     const repository = await Repository.findByPk(req.params.repositoryId);
 
     if (!repository) {
@@ -184,7 +184,7 @@ router.post("/repositories/pick-local-directory", async (_req, res, next) => {
 
 router.delete("/repositories/:repositoryId", async (req, res, next) => {
   try {
-    const authUser = (req as AuthenticatedRequest).authUser;
+    const authUser = requireAuthUser(req);
     const repository = await Repository.findByPk(req.params.repositoryId);
 
     if (!repository) {

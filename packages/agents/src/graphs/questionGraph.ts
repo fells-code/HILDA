@@ -6,7 +6,7 @@ import { synthesizeAnswerNode } from "../nodes/question/synthesizeAnswer";
 import type { QuestionGraphState } from "../state/questionState";
 
 export function createQuestionGraph() {
-  const graph = new StateGraph<QuestionGraphState>({
+  return new StateGraph<QuestionGraphState>({
     channels: {
       taskId: null,
       workspaceId: null,
@@ -24,18 +24,15 @@ export function createQuestionGraph() {
       answer: null,
       error: null,
     },
-  });
-
-  graph.addNode("load_context", loadQuestionContextNode);
-  graph.addNode("retrieve_evidence", retrieveEvidenceNode);
-  graph.addNode("synthesize_answer", synthesizeAnswerNode);
-  graph.addNode("persist_result", persistQuestionResultNode);
-
-  graph.addEdge(START, "load_context");
-  graph.addEdge("load_context", "retrieve_evidence");
-  graph.addEdge("retrieve_evidence", "synthesize_answer");
-  graph.addEdge("synthesize_answer", "persist_result");
-  graph.addEdge("persist_result", END);
-
-  return graph.compile();
+  })
+    .addNode("load_context", loadQuestionContextNode)
+    .addNode("retrieve_evidence", retrieveEvidenceNode)
+    .addNode("synthesize_answer", synthesizeAnswerNode)
+    .addNode("persist_result", persistQuestionResultNode)
+    .addEdge(START, "load_context")
+    .addEdge("load_context", "retrieve_evidence")
+    .addEdge("retrieve_evidence", "synthesize_answer")
+    .addEdge("synthesize_answer", "persist_result")
+    .addEdge("persist_result", END)
+    .compile();
 }

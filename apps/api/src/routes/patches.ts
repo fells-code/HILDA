@@ -8,7 +8,7 @@ import {
   Workspace,
 } from "@hilda/db";
 import { runPatchGraph } from "@hilda/agents";
-import type { AuthenticatedRequest } from "../middleware/devAuth";
+import { requireAuthUser } from "../middleware/devAuth";
 
 const router = Router();
 
@@ -35,7 +35,7 @@ router.post("/patches", async (req, res, next) => {
   let patchTask: Task | null = null;
 
   try {
-    const authUser = (req as AuthenticatedRequest).authUser;
+    const authUser = requireAuthUser(req);
     const parsed = createPatchSchema.safeParse(req.body);
 
     if (!parsed.success) {
@@ -132,7 +132,7 @@ router.post(
   "/patch-approval-requests/:approvalRequestId",
   async (req, res, next) => {
     try {
-      const authUser = (req as AuthenticatedRequest).authUser;
+      const authUser = requireAuthUser(req);
       const parsed = updatePatchApprovalSchema.safeParse(req.body);
 
       if (!parsed.success) {

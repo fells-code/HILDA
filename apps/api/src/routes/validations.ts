@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { Repository, Task, TaskTrace, Workspace } from "@hilda/db";
 import { runValidationGraph } from "@hilda/agents";
-import type { AuthenticatedRequest } from "../middleware/devAuth";
+import { requireAuthUser } from "../middleware/devAuth";
 
 const router = Router();
 
@@ -16,7 +16,7 @@ router.post("/validations", async (req, res, next) => {
   let validationTask: Task | null = null;
 
   try {
-    const authUser = (req as AuthenticatedRequest).authUser;
+    const authUser = requireAuthUser(req);
     const parsed = createValidationSchema.safeParse(req.body);
 
     if (!parsed.success) {

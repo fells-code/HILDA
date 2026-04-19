@@ -5,7 +5,7 @@ import { runAnalysisNode } from "../nodes/analysis/runAnalysis";
 import type { AnalysisGraphState } from "../state/analysisState";
 
 export function createAnalysisGraph() {
-  const graph = new StateGraph<AnalysisGraphState>({
+  return new StateGraph<AnalysisGraphState>({
     channels: {
       taskId: null,
       workspaceId: null,
@@ -18,16 +18,13 @@ export function createAnalysisGraph() {
       result: null,
       error: null,
     },
-  });
-
-  graph.addNode("load_context", loadAnalysisContextNode);
-  graph.addNode("run_analysis", runAnalysisNode);
-  graph.addNode("persist_result", persistAnalysisResultNode);
-
-  graph.addEdge(START, "load_context");
-  graph.addEdge("load_context", "run_analysis");
-  graph.addEdge("run_analysis", "persist_result");
-  graph.addEdge("persist_result", END);
-
-  return graph.compile();
+  })
+    .addNode("load_context", loadAnalysisContextNode)
+    .addNode("run_analysis", runAnalysisNode)
+    .addNode("persist_result", persistAnalysisResultNode)
+    .addEdge(START, "load_context")
+    .addEdge("load_context", "run_analysis")
+    .addEdge("run_analysis", "persist_result")
+    .addEdge("persist_result", END)
+    .compile();
 }

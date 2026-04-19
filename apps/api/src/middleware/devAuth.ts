@@ -1,14 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { User } from "@hilda/db";
-
-export interface AuthenticatedRequest extends Request {
-  authUser: {
-    id: string;
-    email: string;
-    name: string | null;
-    roles: string[];
-  };
-}
+import type { AuthUser } from "../types/auth";
 
 export async function devAuth(
   req: Request,
@@ -27,7 +19,7 @@ export async function devAuth(
     });
   }
 
-  (req as AuthenticatedRequest).authUser = {
+  req.authUser = {
     id: user.id,
     email: user.email,
     name: user.name,
@@ -35,4 +27,12 @@ export async function devAuth(
   };
 
   next();
+}
+
+export function requireAuthUser(req: Request): AuthUser {
+  if (!req.authUser) {
+    throw new Error("Authenticated user missing from request");
+  }
+
+  return req.authUser;
 }

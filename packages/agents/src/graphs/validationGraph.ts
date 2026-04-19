@@ -8,7 +8,7 @@ import { runValidationCommandsNode } from "../nodes/validation/runValidationComm
 import type { ValidationGraphState } from "../state/validationState";
 
 export function createValidationGraph() {
-  const graph = new StateGraph<ValidationGraphState>({
+  return new StateGraph<ValidationGraphState>({
     channels: {
       taskId: null,
       workspaceId: null,
@@ -31,22 +31,19 @@ export function createValidationGraph() {
       success: null,
       error: null,
     },
-  });
-
-  graph.addNode("load_context", loadValidationContextNode);
-  graph.addNode("load_patch_task", loadPatchTaskContextNode);
-  graph.addNode("plan_commands", planValidationCommandsNode);
-  graph.addNode("run_commands", runValidationCommandsNode);
-  graph.addNode("create_artifact", createValidationArtifactNode);
-  graph.addNode("persist_result", persistValidationResultNode);
-
-  graph.addEdge(START, "load_context");
-  graph.addEdge("load_context", "load_patch_task");
-  graph.addEdge("load_patch_task", "plan_commands");
-  graph.addEdge("plan_commands", "run_commands");
-  graph.addEdge("run_commands", "create_artifact");
-  graph.addEdge("create_artifact", "persist_result");
-  graph.addEdge("persist_result", END);
-
-  return graph.compile();
+  })
+    .addNode("load_context", loadValidationContextNode)
+    .addNode("load_patch_task", loadPatchTaskContextNode)
+    .addNode("plan_commands", planValidationCommandsNode)
+    .addNode("run_commands", runValidationCommandsNode)
+    .addNode("create_artifact", createValidationArtifactNode)
+    .addNode("persist_result", persistValidationResultNode)
+    .addEdge(START, "load_context")
+    .addEdge("load_context", "load_patch_task")
+    .addEdge("load_patch_task", "plan_commands")
+    .addEdge("plan_commands", "run_commands")
+    .addEdge("run_commands", "create_artifact")
+    .addEdge("create_artifact", "persist_result")
+    .addEdge("persist_result", END)
+    .compile();
 }

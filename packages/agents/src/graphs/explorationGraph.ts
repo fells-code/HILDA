@@ -13,7 +13,7 @@ import { synthesizeExplorationAnswerNode } from "../nodes/exploration/synthesize
 import type { ExplorationGraphState } from "../state/explorationState";
 
 export function createExplorationGraph() {
-  const graph = new StateGraph<ExplorationGraphState>({
+  return new StateGraph<ExplorationGraphState>({
     channels: {
       taskId: null,
       workspaceId: null,
@@ -41,32 +41,29 @@ export function createExplorationGraph() {
       model: null,
       error: null,
     },
-  });
-
-  graph.addNode("load_context", loadExplorationContextNode);
-  graph.addNode("classify_intent", classifyExplorationIntentNode);
-  graph.addNode("gather_repo_metadata", gatherRepoMetadataNode);
-  graph.addNode("gather_framework_evidence", gatherFrameworkEvidenceNode);
-  graph.addNode("gather_docs_evidence", gatherDocsEvidenceNode);
-  graph.addNode("gather_structure_evidence", gatherStructureEvidenceNode);
-  graph.addNode("gather_execution_evidence", gatherExecutionEvidenceNode);
-  graph.addNode("gather_testing_evidence", gatherTestingEvidenceNode);
-  graph.addNode("gather_entrypoint_evidence", gatherEntrypointEvidenceNode);
-  graph.addNode("synthesize_answer", synthesizeExplorationAnswerNode);
-  graph.addNode("persist_result", persistExplorationResultNode);
-
-  graph.addEdge(START, "load_context");
-  graph.addEdge("load_context", "classify_intent");
-  graph.addEdge("classify_intent", "gather_repo_metadata");
-  graph.addEdge("gather_repo_metadata", "gather_framework_evidence");
-  graph.addEdge("gather_framework_evidence", "gather_docs_evidence");
-  graph.addEdge("gather_docs_evidence", "gather_structure_evidence");
-  graph.addEdge("gather_structure_evidence", "gather_execution_evidence");
-  graph.addEdge("gather_execution_evidence", "gather_testing_evidence");
-  graph.addEdge("gather_testing_evidence", "gather_entrypoint_evidence");
-  graph.addEdge("gather_entrypoint_evidence", "synthesize_answer");
-  graph.addEdge("synthesize_answer", "persist_result");
-  graph.addEdge("persist_result", END);
-
-  return graph.compile();
+  })
+    .addNode("load_context", loadExplorationContextNode)
+    .addNode("classify_intent", classifyExplorationIntentNode)
+    .addNode("gather_repo_metadata", gatherRepoMetadataNode)
+    .addNode("gather_framework_evidence", gatherFrameworkEvidenceNode)
+    .addNode("gather_docs_evidence", gatherDocsEvidenceNode)
+    .addNode("gather_structure_evidence", gatherStructureEvidenceNode)
+    .addNode("gather_execution_evidence", gatherExecutionEvidenceNode)
+    .addNode("gather_testing_evidence", gatherTestingEvidenceNode)
+    .addNode("gather_entrypoint_evidence", gatherEntrypointEvidenceNode)
+    .addNode("synthesize_answer", synthesizeExplorationAnswerNode)
+    .addNode("persist_result", persistExplorationResultNode)
+    .addEdge(START, "load_context")
+    .addEdge("load_context", "classify_intent")
+    .addEdge("classify_intent", "gather_repo_metadata")
+    .addEdge("gather_repo_metadata", "gather_framework_evidence")
+    .addEdge("gather_framework_evidence", "gather_docs_evidence")
+    .addEdge("gather_docs_evidence", "gather_structure_evidence")
+    .addEdge("gather_structure_evidence", "gather_execution_evidence")
+    .addEdge("gather_execution_evidence", "gather_testing_evidence")
+    .addEdge("gather_testing_evidence", "gather_entrypoint_evidence")
+    .addEdge("gather_entrypoint_evidence", "synthesize_answer")
+    .addEdge("synthesize_answer", "persist_result")
+    .addEdge("persist_result", END)
+    .compile();
 }

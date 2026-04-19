@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { Repository, RepositoryIndex, Workspace } from "@hilda/db";
-import type { AuthenticatedRequest } from "../middleware/devAuth";
+import { requireAuthUser } from "../middleware/devAuth";
 
 const router = Router();
 
@@ -8,7 +8,7 @@ router.get(
   "/repositories/:repositoryId/index-status",
   async (req, res, next) => {
     try {
-      const authUser = (req as AuthenticatedRequest).authUser;
+      const authUser = requireAuthUser(req);
       const { repositoryId } = req.params;
 
       const repository = await Repository.findByPk(repositoryId);

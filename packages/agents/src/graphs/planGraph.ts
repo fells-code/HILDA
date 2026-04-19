@@ -7,7 +7,7 @@ import { retrievePlanEvidenceNode } from "../nodes/plan/retrievePlanEvidence";
 import type { PlanGraphState } from "../state/planState";
 
 export function createPlanGraph() {
-  const graph = new StateGraph<PlanGraphState>({
+  return new StateGraph<PlanGraphState>({
     channels: {
       taskId: null,
       workspaceId: null,
@@ -25,20 +25,17 @@ export function createPlanGraph() {
       approvalRequestId: null,
       error: null,
     },
-  });
-
-  graph.addNode("load_context", loadPlanContextNode);
-  graph.addNode("retrieve_evidence", retrievePlanEvidenceNode);
-  graph.addNode("build_plan", buildStructuredPlanNode);
-  graph.addNode("create_approval", createPlanApprovalNode);
-  graph.addNode("persist_result", persistPlanResultNode);
-
-  graph.addEdge(START, "load_context");
-  graph.addEdge("load_context", "retrieve_evidence");
-  graph.addEdge("retrieve_evidence", "build_plan");
-  graph.addEdge("build_plan", "create_approval");
-  graph.addEdge("create_approval", "persist_result");
-  graph.addEdge("persist_result", END);
-
-  return graph.compile();
+  })
+    .addNode("load_context", loadPlanContextNode)
+    .addNode("retrieve_evidence", retrievePlanEvidenceNode)
+    .addNode("build_plan", buildStructuredPlanNode)
+    .addNode("create_approval", createPlanApprovalNode)
+    .addNode("persist_result", persistPlanResultNode)
+    .addEdge(START, "load_context")
+    .addEdge("load_context", "retrieve_evidence")
+    .addEdge("retrieve_evidence", "build_plan")
+    .addEdge("build_plan", "create_approval")
+    .addEdge("create_approval", "persist_result")
+    .addEdge("persist_result", END)
+    .compile();
 }

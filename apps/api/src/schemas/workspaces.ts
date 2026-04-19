@@ -1,13 +1,13 @@
 import { Router } from "express";
 import { Workspace, WorkspaceMember } from "@hilda/db";
 import { createWorkspaceSchema } from "../schemas/workspace";
-import type { AuthenticatedRequest } from "../middleware/devAuth";
+import { requireAuthUser } from "../middleware/devAuth";
 
 const router = Router();
 
 router.get("/", async (req, res, next) => {
   try {
-    const authUser = (req as AuthenticatedRequest).authUser;
+    const authUser = requireAuthUser(req);
 
     const workspaces = await Workspace.findAll({
       where: { ownerId: authUser.id },
@@ -25,7 +25,7 @@ router.get("/", async (req, res, next) => {
 
 router.post("/", async (req, res, next) => {
   try {
-    const authUser = (req as AuthenticatedRequest).authUser;
+    const authUser = requireAuthUser(req);
     const parsed = createWorkspaceSchema.safeParse(req.body);
 
     if (!parsed.success) {

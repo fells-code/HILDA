@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { Repository, Task, TaskTrace, Workspace } from "@hilda/db";
 import { runQuestionGraph } from "@hilda/agents";
-import type { AuthenticatedRequest } from "../middleware/devAuth";
+import { requireAuthUser } from "../middleware/devAuth";
 
 const router = Router();
 
@@ -15,7 +15,7 @@ router.post("/questions", async (req, res, next) => {
   let task: Task | null = null;
 
   try {
-    const authUser = (req as AuthenticatedRequest).authUser;
+    const authUser = requireAuthUser(req);
     const parsed = askQuestionSchema.safeParse(req.body);
 
     if (!parsed.success) {

@@ -7,13 +7,13 @@ import {
   TaskTrace,
   Workspace,
 } from "@hilda/db";
-import type { AuthenticatedRequest } from "../middleware/devAuth";
+import { requireAuthUser } from "../middleware/devAuth";
 
 const router = Router();
 
 router.get("/tasks/:taskId", async (req, res, next) => {
   try {
-    const authUser = (req as AuthenticatedRequest).authUser;
+    const authUser = requireAuthUser(req);
     const { taskId } = req.params;
 
     const task = await Task.findByPk(taskId);
