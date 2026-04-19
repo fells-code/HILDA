@@ -15,6 +15,7 @@ import {
   fetchGitHubOpenIssuesCount,
   parseGitHubRepositoryRef,
 } from "../lib/githubRepository";
+import { pickDirectory } from "../lib/pickDirectory";
 import { getRepositoryWorkingPath } from "../lib/rootPaths";
 
 const router = Router();
@@ -154,6 +155,27 @@ router.get("/repositories/:repositoryId/metadata", async (req, res, next) => {
         sourceType: repository.provider,
         githubIssuesOpen,
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/repositories/pick-local-directory", async (_req, res, next) => {
+  try {
+    const localPath = await pickDirectory();
+
+    if (!localPath) {
+      res.status(400).json({
+        ok: false,
+        error: "No directory selected",
+      });
+      return;
+    }
+
+    res.json({
+      ok: true,
+      localPath,
     });
   } catch (error) {
     next(error);

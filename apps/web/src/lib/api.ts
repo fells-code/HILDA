@@ -275,6 +275,15 @@ export async function getRepositoryMetadata(repositoryId: string): Promise<{
   return request(`/repositories/${repositoryId}/metadata`);
 }
 
+export async function pickLocalDirectory(): Promise<{
+  ok: true;
+  localPath: string;
+}> {
+  return request("/repositories/pick-local-directory", {
+    method: "POST",
+  });
+}
+
 export async function getRepositoryIndexStatus(repositoryId: string): Promise<{
   ok: true;
   repository: Pick<Repository, "id" | "name" | "status">;

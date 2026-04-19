@@ -15,6 +15,7 @@
     },
     "dependencies": {
         "@hilda/db": "workspace:*",
+        "@hilda/shared": "workspace:*",
         "zod": "^3.24.1",
         "openai": "^4.103.0",
         "@langchain/langgraph": "^0.2.39"

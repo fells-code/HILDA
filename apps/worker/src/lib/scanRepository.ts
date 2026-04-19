@@ -1,15 +1,8 @@
-import fs from "node:fs/promises";
 import path from "node:path";
-
-const IGNORED_DIRS = new Set([
-  ".git",
-  "node_modules",
-  "dist",
-  "build",
-  "coverage",
-  ".turbo",
-  ".next",
-]);
+import {
+  listVisibleRepositoryFiles,
+  listVisibleTopLevelEntries,
+} from "@hilda/shared";
 
 const DOC_EXTENSIONS = new Set([".md", ".mdx", ".txt"]);
 const CODE_EXTENSIONS = new Set([
@@ -33,34 +26,10 @@ export interface RepositoryScanSummary {
   sampleCode: string[];
 }
 
-async function walk(
-  dir: string,
-  root: string,
-  results: string[],
-): Promise<void> {
-  const entries = await fs.readdir(dir, { withFileTypes: true });
-
-  for (const entry of entries) {
-    if (entry.isDirectory() && IGNORED_DIRS.has(entry.name)) {
-      continue;
-    }
-
-    const fullPath = path.join(dir, entry.name);
-
-    if (entry.isDirectory()) {
-      await walk(fullPath, root, results);
-      continue;
-    }
-
-    results.push(path.relative(root, fullPath));
-  }
-}
-
 export async function scanRepository(
   root: string,
 ): Promise<RepositoryScanSummary> {
-  const files: string[] = [];
-  await walk(root, root, files);
+  const files = await listVisibleRepositoryFiles(root);
 
   const codeFiles = files.filter((file) =>
     CODE_EXTENSIONS.has(path.extname(file)),
@@ -69,13 +38,11 @@ export async function scanRepository(
     DOC_EXTENSIONS.has(path.extname(file)),
   );
 
-  const topLevelEntries = await fs.readdir(root);
-
   return {
     totalFiles: files.length,
     codeFiles: codeFiles.length,
     docFiles: docFiles.length,
-    topLevelEntries: topLevelEntries.slice(0, 25),
+    topLevelEntries: listVisibleTopLevelEntries(files),
     sampleDocs: docFiles.slice(0, 15),
     sampleCode: codeFiles.slice(0, 15),
   };

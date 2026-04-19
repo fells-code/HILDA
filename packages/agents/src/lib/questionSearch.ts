@@ -1,15 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-
-const IGNORED_DIRS = new Set([
-  ".git",
-  "node_modules",
-  "dist",
-  "build",
-  "coverage",
-  ".turbo",
-  ".next",
-]);
+import { listVisibleRepositoryFiles } from "@hilda/shared";
 
 const TEXT_EXTENSIONS = new Set([
   ".ts",
@@ -77,34 +68,6 @@ interface SearchChunk {
   lineEnd: number;
   content: string;
   chunkId: string;
-}
-
-export async function walkTextFiles(
-  dir: string,
-  root: string,
-  results: string[],
-): Promise<void> {
-  const entries = await fs.readdir(dir, { withFileTypes: true });
-
-  for (const entry of entries) {
-    if (entry.isDirectory() && IGNORED_DIRS.has(entry.name)) {
-      continue;
-    }
-
-    const fullPath = path.join(dir, entry.name);
-
-    if (entry.isDirectory()) {
-      await walkTextFiles(fullPath, root, results);
-      continue;
-    }
-
-    const relativePath = path.relative(root, fullPath);
-    const ext = path.extname(relativePath);
-
-    if (TEXT_EXTENSIONS.has(ext)) {
-      results.push(relativePath);
-    }
-  }
 }
 
 function normalizeToken(value: string): string {
@@ -292,8 +255,9 @@ export async function searchRepository(
   filesScanned: number;
   matches: SearchMatch[];
 }> {
-  const files: string[] = [];
-  await walkTextFiles(repoPath, repoPath, files);
+  const files = (await listVisibleRepositoryFiles(repoPath)).filter((file) =>
+    TEXT_EXTENSIONS.has(path.extname(file)),
+  );
 
   const terms = extractQueryTerms(question);
   const matches: SearchMatch[] = [];

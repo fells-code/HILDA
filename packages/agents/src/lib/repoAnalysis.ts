@@ -1,43 +1,12 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-
-const IGNORED_DIRS = new Set([
-  ".git",
-  "node_modules",
-  "dist",
-  "build",
-  "coverage",
-  ".turbo",
-  ".next",
-]);
-
-async function walk(
-  dir: string,
-  root: string,
-  results: string[],
-): Promise<void> {
-  const entries = await fs.readdir(dir, { withFileTypes: true });
-
-  for (const entry of entries) {
-    if (entry.isDirectory() && IGNORED_DIRS.has(entry.name)) {
-      continue;
-    }
-
-    const fullPath = path.join(dir, entry.name);
-
-    if (entry.isDirectory()) {
-      await walk(fullPath, root, results);
-      continue;
-    }
-
-    results.push(path.relative(root, fullPath));
-  }
-}
+import {
+  listVisibleRepositoryFiles,
+  listVisibleTopLevelEntries,
+} from "@hilda/shared";
 
 export async function listAllFiles(repoPath: string): Promise<string[]> {
-  const files: string[] = [];
-  await walk(repoPath, repoPath, files);
-  return files;
+  return listVisibleRepositoryFiles(repoPath);
 }
 
 export async function countTestFiles(repoPath: string) {
@@ -78,7 +47,7 @@ export async function listPackageScripts(repoPath: string) {
 
 export async function summarizeStructure(repoPath: string) {
   const files = await listAllFiles(repoPath);
-  const topLevelEntries = await fs.readdir(repoPath);
+  const topLevelEntries = listVisibleTopLevelEntries(files);
 
   const packageLikeDirs = topLevelEntries.filter((entry) =>
     [

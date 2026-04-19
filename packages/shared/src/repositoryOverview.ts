@@ -1,15 +1,9 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-
-const IGNORED_DIRS = new Set([
-  ".git",
-  "node_modules",
-  "dist",
-  "build",
-  "coverage",
-  ".turbo",
-  ".next",
-]);
+import {
+  listVisibleRepositoryFiles,
+  listVisibleTopLevelEntries,
+} from "./repositoryFiles";
 
 const LANGUAGE_BY_EXTENSION: Record<string, string> = {
   ".ts": "TypeScript",
@@ -98,29 +92,6 @@ interface CoverageSummary {
   statementsPct?: number;
   functionsPct?: number;
   branchesPct?: number;
-}
-
-async function walk(
-  dir: string,
-  root: string,
-  results: string[],
-): Promise<void> {
-  const entries = await fs.readdir(dir, { withFileTypes: true });
-
-  for (const entry of entries) {
-    if (entry.isDirectory() && IGNORED_DIRS.has(entry.name)) {
-      continue;
-    }
-
-    const fullPath = path.join(dir, entry.name);
-
-    if (entry.isDirectory()) {
-      await walk(fullPath, root, results);
-      continue;
-    }
-
-    results.push(path.relative(root, fullPath));
-  }
 }
 
 async function readJsonFile<T>(filePath: string): Promise<T | null> {
@@ -232,8 +203,15 @@ function normalizeParagraph(text: string): string {
     .trim();
 }
 
-async function extractReadmeSummary(repoPath: string): Promise<string | null> {
+async function extractReadmeSummary(
+  repoPath: string,
+  files: string[],
+): Promise<string | null> {
   for (const candidate of README_FILES) {
+    if (!files.includes(candidate)) {
+      continue;
+    }
+
     const content = await readUtf8(path.join(repoPath, candidate));
 
     if (!content) {
@@ -498,10 +476,8 @@ function buildAnswer(options: {
 export async function generateRepositoryOverview(
   repoPath: string,
 ): Promise<RepositoryOverview> {
-  const files: string[] = [];
-  await walk(repoPath, repoPath, files);
-
-  const topLevelEntries = (await fs.readdir(repoPath)).slice(0, 25);
+  const files = await listVisibleRepositoryFiles(repoPath);
+  const topLevelEntries = listVisibleTopLevelEntries(files);
   const languageCounts = new Map<string, number>();
 
   for (const file of files) {
@@ -512,12 +488,12 @@ export async function generateRepositoryOverview(
     }
   }
 
-  const packageJson = await readJsonFile<PackageJsonLike>(
-    path.join(repoPath, "package.json"),
-  );
+  const packageJson = files.includes("package.json")
+    ? await readJsonFile<PackageJsonLike>(path.join(repoPath, "package.json"))
+    : null;
   const scripts = Object.keys(packageJson?.scripts ?? {});
   const frameworks = detectFrameworks(packageJson ?? {});
-  const readmeSummary = await extractReadmeSummary(repoPath);
+  const readmeSummary = await extractReadmeSummary(repoPath, files);
   const repositoryShape = inferRepositoryShape(topLevelEntries, frameworks);
   const purpose = inferPurpose(
     packageJson,

@@ -50,3 +50,8 @@ export {
   formatRepositoryOverviewSummary,
   generateRepositoryOverview,
 } from "./repositoryOverview";
+
+export {
+  listVisibleRepositoryFiles,
+  listVisibleTopLevelEntries,
+} from "./repositoryFiles";

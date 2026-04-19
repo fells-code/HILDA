@@ -19,6 +19,7 @@ import {
   listRepositories,
   listWorkspaces,
   PatchArtifact,
+  pickLocalDirectory,
   RepositoryMetadata,
   TaskTrace,
   updateApprovalRequest,
@@ -57,6 +58,8 @@ function App() {
   const [loadingWorkspaces, setLoadingWorkspaces] = useState(true);
   const [loadingRepositories, setLoadingRepositories] = useState(false);
   const [workspaceName, setWorkspaceName] = useState("");
+  const [isWorkspaceModalOpen, setIsWorkspaceModalOpen] = useState(false);
+  const [isRepositoryModalOpen, setIsRepositoryModalOpen] = useState(false);
   const [repositoryForm, setRepositoryForm] = useState({
     provider: "github" as "github" | "local",
     name: "",
@@ -66,6 +69,7 @@ function App() {
   });
   const [submittingWorkspace, setSubmittingWorkspace] = useState(false);
   const [submittingRepository, setSubmittingRepository] = useState(false);
+  const [pickingLocalDirectory, setPickingLocalDirectory] = useState(false);
   const [deletingRepositoryId, setDeletingRepositoryId] = useState("");
   const [error, setError] = useState("");
   const [selectedRepositoryId, setSelectedRepositoryId] = useState("");
@@ -389,7 +393,7 @@ function App() {
           role: "assistant",
           kind: "system",
           title: "Repository overview refreshed",
-          body: response.result.answer,
+          body: formatOverviewChatBody(response.result),
         });
         setQuestionMatches([]);
         setLatestTaskId(response.taskId);
@@ -571,6 +575,7 @@ function App() {
     try {
       const response = await createWorkspace({ name: workspaceName.trim() });
       setWorkspaceName("");
+      setIsWorkspaceModalOpen(false);
       await loadWorkspaces();
       setSelectedWorkspaceId(response.workspace.id);
     } catch (err) {
@@ -617,6 +622,7 @@ function App() {
         cloneUrl: "",
         localPath: "",
       });
+      setIsRepositoryModalOpen(false);
 
       await loadRepositories(selectedWorkspaceId);
     } catch (err) {
@@ -625,6 +631,29 @@ function App() {
       );
     } finally {
       setSubmittingRepository(false);
+    }
+  }
+
+  async function handlePickLocalDirectory() {
+    setPickingLocalDirectory(true);
+    setError("");
+
+    try {
+      const response = await pickLocalDirectory();
+      const selectedPath = response.localPath.trim();
+
+      setRepositoryForm((current) => ({
+        ...current,
+        provider: "local",
+        localPath: selectedPath,
+        name: current.name || selectedPath.split("/").filter(Boolean).at(-1) || "",
+      }));
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to pick local directory",
+      );
+    } finally {
+      setPickingLocalDirectory(false);
     }
   }
 
@@ -744,249 +773,185 @@ function App() {
     <main style={pageStyle}>
       <div style={shellStyle}>
         <aside style={sidebarStyle}>
-          <div style={brandCardStyle}>
-            <div style={eyebrowStyle}>Developer Workspace</div>
-            <h1 style={{ margin: "8px 0 0", fontSize: 30 }}>HILDA</h1>
-            <p style={{ margin: "10px 0 0", color: "#4b5563", lineHeight: 1.6 }}>
-              Human-in-the-loop development agents for grounded repo analysis,
-              planning, patch review, and validation.
-            </p>
+          <div style={sidebarHeaderStyle}>
+            <div style={sidebarBrandRowStyle}>
+              <div style={brandMarkStyle}>H</div>
+              <div>
+                <div style={sidebarBrandTitleStyle}>HILDA</div>
+                <div style={sidebarBrandSubtitleStyle}>
+                  Repo workspaces
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsWorkspaceModalOpen(true)}
+              style={iconButtonStyle}
+              title="Create workspace"
+            >
+              <PlusIcon />
+            </button>
           </div>
 
-          <Card
-            title="Workspaces"
-            subtitle="Keep repository groups clean and easy to switch between."
-          >
-            <form
-              onSubmit={handleCreateWorkspace}
-              style={{ display: "grid", gap: 12, marginBottom: 16 }}
-            >
-              <input
-                value={workspaceName}
-                onChange={(event) => setWorkspaceName(event.target.value)}
-                placeholder="Workspace name"
-                style={inputStyle}
-              />
-              <button
-                type="submit"
-                disabled={submittingWorkspace}
-                style={buttonStyle}
-              >
-                {submittingWorkspace ? "Creating..." : "Create workspace"}
-              </button>
-            </form>
+          <div style={treePanelStyle}>
+            <div style={treePanelHeaderStyle}>
+              <div style={treePanelTitleStyle}>
+                <FolderTreeIcon />
+                Workspaces
+              </div>
+            </div>
 
             {loadingWorkspaces ? (
               <p style={mutedTextStyle}>Loading workspaces...</p>
             ) : workspaces.length === 0 ? (
               <p style={mutedTextStyle}>No workspaces yet.</p>
             ) : (
-              <div style={{ display: "grid", gap: 10 }}>
+              <div style={treeListStyle}>
                 {workspaces.map((workspace) => {
-                  const isSelected = workspace.id === selectedWorkspaceId;
+                  const isSelectedWorkspace = workspace.id === selectedWorkspaceId;
+                  const workspaceRepositories = isSelectedWorkspace
+                    ? repositories
+                    : [];
 
                   return (
-                    <button
+                    <details
                       key={workspace.id}
-                      onClick={() => setSelectedWorkspaceId(workspace.id)}
-                      style={{
-                        ...sidebarButtonStyle,
-                        border: isSelected
-                          ? "1px solid #1d4ed8"
-                          : "1px solid #2a3340",
-                        background: isSelected ? "#18202b" : "#141922",
-                      }}
+                      open={isSelectedWorkspace}
+                      style={treeDetailsStyle}
                     >
-                      <div style={{ fontWeight: 700 }}>{workspace.name}</div>
-                      <div style={{ ...mutedTextStyle, marginTop: 4 }}>
-                        Created{" "}
-                        {new Date(workspace.createdAt).toLocaleDateString()}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </Card>
-
-          <Card
-            title="Repositories"
-            subtitle={
-              selectedWorkspace
-                ? `Repos inside ${selectedWorkspace.name}`
-                : "Select a workspace to view repositories"
-            }
-            action={
-              selectedWorkspace ? (
-                <button
-                  onClick={() =>
-                    void loadRepositories(selectedWorkspace.id, {
-                      background: true,
-                    })
-                  }
-                  style={secondaryButtonStyle}
-                >
-                  Refresh
-                </button>
-              ) : null
-            }
-          >
-            {!selectedWorkspace ? (
-              <p style={mutedTextStyle}>Choose a workspace first.</p>
-            ) : loadingRepositories && repositories.length === 0 ? (
-              <p style={mutedTextStyle}>Loading repositories...</p>
-            ) : repositories.length === 0 ? (
-              <p style={mutedTextStyle}>No repositories in this workspace yet.</p>
-            ) : (
-              <div style={{ display: "grid", gap: 10 }}>
-                {repositories.map((repository) => {
-                  const index = repositoryIndexes[repository.id] ?? null;
-                  const isSelected = repository.id === selectedRepositoryId;
-
-                  return (
-                    <article
-                      key={repository.id}
-                      style={{
-                        ...sidebarButtonStyle,
-                        border: isSelected
-                          ? "1px solid #0f766e"
-                          : "1px solid #2a3340",
-                        background: isSelected ? "#162127" : "#141922",
-                      }}
-                    >
-                      <button
-                        onClick={() => setSelectedRepositoryId(repository.id)}
+                      <summary
                         style={{
-                          border: "none",
-                          background: "transparent",
-                          padding: 0,
-                          width: "100%",
-                          textAlign: "left",
-                          color: "inherit",
-                          cursor: "pointer",
+                          ...treeSummaryStyle,
+                          background: isSelectedWorkspace
+                            ? "#161d27"
+                            : "transparent",
+                        }}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          setSelectedWorkspaceId(workspace.id);
                         }}
                       >
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            gap: 12,
-                            alignItems: "center",
-                          }}
-                        >
-                          <div style={{ fontWeight: 700 }}>
-                            {repository.name}
+                        <div style={treeSummaryLabelStyle}>
+                          <ChevronIcon open={isSelectedWorkspace} />
+                          <FolderIcon />
+                          <span>{workspace.name}</span>
+                        </div>
+                        <span style={treeCountStyle}>
+                          {isSelectedWorkspace ? repositories.length : ""}
+                        </span>
+                      </summary>
+
+                      {isSelectedWorkspace ? (
+                        <div style={treeChildrenStyle}>
+                          <div style={workspaceActionsRowStyle}>
+                            <button
+                              type="button"
+                              onClick={() => setIsRepositoryModalOpen(true)}
+                              style={treeActionButtonStyle}
+                            >
+                              <PlusIcon />
+                              Add repo
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void loadRepositories(workspace.id, {
+                                  background: true,
+                                })
+                              }
+                              style={treeActionButtonStyle}
+                            >
+                              <RefreshIcon />
+                              Refresh
+                            </button>
                           </div>
-                          <StatusBadge status={repository.status} />
+
+                          {loadingRepositories && repositories.length === 0 ? (
+                            <div style={treeHintStyle}>Loading repositories...</div>
+                          ) : workspaceRepositories.length === 0 ? (
+                            <div style={treeHintStyle}>
+                              No repositories in this workspace yet.
+                            </div>
+                          ) : (
+                            <div style={repoTreeListStyle}>
+                              {workspaceRepositories.map((repository) => {
+                                const index =
+                                  repositoryIndexes[repository.id] ?? null;
+                                const isSelectedRepo =
+                                  repository.id === selectedRepositoryId;
+
+                                return (
+                                  <div
+                                    key={repository.id}
+                                    style={{
+                                      ...repoTreeRowStyle,
+                                      background: isSelectedRepo
+                                        ? "#18222e"
+                                        : "transparent",
+                                      borderColor: isSelectedRepo
+                                        ? "#314154"
+                                        : "transparent",
+                                    }}
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setSelectedRepositoryId(repository.id)
+                                      }
+                                      style={repoTreeButtonStyle}
+                                    >
+                                      <div style={repoTreePrimaryStyle}>
+                                        {repository.provider === "github" ? (
+                                          <GithubIcon />
+                                        ) : (
+                                          <HardDriveIcon />
+                                        )}
+                                        <span>{repository.name}</span>
+                                      </div>
+                                      <div style={repoTreeMetaStyle}>
+                                        <span
+                                          style={{
+                                            ...statusDotStyle,
+                                            background: getStatusDotColor(
+                                              repository.status,
+                                            ),
+                                          }}
+                                        />
+                                        <span>
+                                          {repository.provider === "local"
+                                            ? "Local"
+                                            : repository.defaultBranch}
+                                        </span>
+                                        <span>•</span>
+                                        <span>{index?.status ?? "No index"}</span>
+                                      </div>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        void handleDeleteRepository(repository)
+                                      }
+                                      disabled={
+                                        deletingRepositoryId === repository.id
+                                      }
+                                      style={rowIconButtonStyle}
+                                      title="Delete repository"
+                                    >
+                                      <TrashIcon />
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
-                        <div style={{ ...mutedTextStyle, marginTop: 6 }}>
-                          {repository.provider === "local"
-                            ? `Local directory • ${index?.status ?? "No index"}`
-                            : `${repository.defaultBranch} • ${index?.status ?? "No index"}`}
-                        </div>
-                      </button>
-                      <div style={{ marginTop: 10, display: "flex" }}>
-                        <button
-                          onClick={() => void handleDeleteRepository(repository)}
-                          disabled={deletingRepositoryId === repository.id}
-                          style={dangerButtonStyle}
-                        >
-                          {deletingRepositoryId === repository.id
-                            ? "Deleting..."
-                            : "Delete"}
-                        </button>
-                      </div>
-                    </article>
+                      ) : null}
+                    </details>
                   );
                 })}
               </div>
             )}
-          </Card>
-
-          <Card
-            title="Add repository"
-            subtitle="Connect another repo into the selected workspace."
-          >
-            <form
-              onSubmit={handleCreateRepository}
-              style={{ display: "grid", gap: 12 }}
-            >
-              <select
-                value={repositoryForm.provider}
-                onChange={(event) =>
-                  setRepositoryForm((current) => ({
-                    ...current,
-                    provider: event.target.value as "github" | "local",
-                  }))
-                }
-                style={inputStyle}
-                disabled={!selectedWorkspace}
-              >
-                <option value="github">GitHub repository</option>
-                <option value="local">Local directory</option>
-              </select>
-              <input
-                value={repositoryForm.name}
-                onChange={(event) =>
-                  setRepositoryForm((current) => ({
-                    ...current,
-                    name: event.target.value,
-                  }))
-                }
-                placeholder="Repository name"
-                style={inputStyle}
-                disabled={!selectedWorkspace}
-              />
-              {repositoryForm.provider === "github" ? (
-                <>
-                  <input
-                    value={repositoryForm.defaultBranch}
-                    onChange={(event) =>
-                      setRepositoryForm((current) => ({
-                        ...current,
-                        defaultBranch: event.target.value,
-                      }))
-                    }
-                    placeholder="main"
-                    style={inputStyle}
-                    disabled={!selectedWorkspace}
-                  />
-                  <input
-                    value={repositoryForm.cloneUrl}
-                    onChange={(event) =>
-                      setRepositoryForm((current) => ({
-                        ...current,
-                        cloneUrl: event.target.value,
-                      }))
-                    }
-                    placeholder="https://github.com/org/repo.git"
-                    style={inputStyle}
-                    disabled={!selectedWorkspace}
-                  />
-                </>
-              ) : (
-                <input
-                  value={repositoryForm.localPath}
-                  onChange={(event) =>
-                    setRepositoryForm((current) => ({
-                      ...current,
-                      localPath: event.target.value,
-                    }))
-                  }
-                  placeholder="/absolute/path/to/local/repository"
-                  style={inputStyle}
-                  disabled={!selectedWorkspace}
-                />
-              )}
-              <button
-                type="submit"
-                disabled={!selectedWorkspace || submittingRepository}
-                style={buttonStyle}
-              >
-                {submittingRepository ? "Adding..." : "Add repository"}
-              </button>
-            </form>
-          </Card>
+          </div>
         </aside>
 
         <section style={contentStyle}>
@@ -1171,14 +1136,14 @@ function App() {
                               ? userChatBubbleStyle
                               : assistantChatBubbleStyle
                           }
-                        >
-                          <div style={chatMetaStyle}>
-                            {entry.role === "user" ? "You" : "HILDA"}
-                            {entry.title ? ` • ${entry.title}` : ""}
-                          </div>
-                          <div style={{ lineHeight: 1.7 }}>{entry.body}</div>
-                        </article>
-                      ))}
+                          >
+                            <div style={chatMetaStyle}>
+                              {entry.role === "user" ? "You" : "HILDA"}
+                              {entry.title ? ` • ${entry.title}` : ""}
+                            </div>
+                            {renderChatEntryBody(entry)}
+                          </article>
+                        ))}
                     </div>
                   )}
 
@@ -1279,6 +1244,183 @@ function App() {
           )}
         </section>
       </div>
+
+      {isWorkspaceModalOpen ? (
+        <ModalShell
+          title="Create workspace"
+          description="Set up a clean workspace to group related repositories."
+          onClose={() => {
+            setIsWorkspaceModalOpen(false);
+            setWorkspaceName("");
+          }}
+        >
+          <form
+            onSubmit={handleCreateWorkspace}
+            style={{ display: "grid", gap: 12 }}
+          >
+            <input
+              value={workspaceName}
+              onChange={(event) => setWorkspaceName(event.target.value)}
+              placeholder="Workspace name"
+              style={inputStyle}
+              autoFocus
+            />
+            <div style={modalActionRowStyle}>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsWorkspaceModalOpen(false);
+                  setWorkspaceName("");
+                }}
+                style={secondaryButtonStyle}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={submittingWorkspace}
+                style={buttonStyle}
+              >
+                {submittingWorkspace ? "Creating..." : "Create workspace"}
+              </button>
+            </div>
+          </form>
+        </ModalShell>
+      ) : null}
+
+      {isRepositoryModalOpen ? (
+        <ModalShell
+          title="Add repository"
+          description={
+            selectedWorkspace
+              ? `Connect a repository into ${selectedWorkspace.name}.`
+              : "Select a workspace before adding a repository."
+          }
+          onClose={() => {
+            setIsRepositoryModalOpen(false);
+            setRepositoryForm({
+              provider: "github",
+              name: "",
+              defaultBranch: "main",
+              cloneUrl: "",
+              localPath: "",
+            });
+          }}
+        >
+          <form
+            onSubmit={handleCreateRepository}
+            style={{ display: "grid", gap: 12 }}
+          >
+            <select
+              value={repositoryForm.provider}
+              onChange={(event) =>
+                setRepositoryForm((current) => ({
+                  ...current,
+                  provider: event.target.value as "github" | "local",
+                }))
+              }
+              style={inputStyle}
+              disabled={!selectedWorkspace}
+            >
+              <option value="github">GitHub repository</option>
+              <option value="local">Local directory</option>
+            </select>
+            <input
+              value={repositoryForm.name}
+              onChange={(event) =>
+                setRepositoryForm((current) => ({
+                  ...current,
+                  name: event.target.value,
+                }))
+              }
+              placeholder="Repository name"
+              style={inputStyle}
+              disabled={!selectedWorkspace}
+            />
+            {repositoryForm.provider === "github" ? (
+              <>
+                <input
+                  value={repositoryForm.defaultBranch}
+                  onChange={(event) =>
+                    setRepositoryForm((current) => ({
+                      ...current,
+                      defaultBranch: event.target.value,
+                    }))
+                  }
+                  placeholder="main"
+                  style={inputStyle}
+                  disabled={!selectedWorkspace}
+                />
+                <input
+                  value={repositoryForm.cloneUrl}
+                  onChange={(event) =>
+                    setRepositoryForm((current) => ({
+                      ...current,
+                      cloneUrl: event.target.value,
+                    }))
+                  }
+                  placeholder="https://github.com/org/repo.git"
+                  style={inputStyle}
+                  disabled={!selectedWorkspace}
+                />
+              </>
+            ) : (
+              <div style={{ display: "grid", gap: 10 }}>
+                <div style={localPathBrowserRowStyle}>
+                  <input
+                    value={repositoryForm.localPath}
+                    onChange={(event) =>
+                      setRepositoryForm((current) => ({
+                        ...current,
+                        localPath: event.target.value,
+                      }))
+                    }
+                    placeholder="Choose a local repository directory"
+                    style={inputStyle}
+                    disabled={!selectedWorkspace || pickingLocalDirectory}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void handlePickLocalDirectory()}
+                    style={secondaryButtonStyle}
+                    disabled={!selectedWorkspace || pickingLocalDirectory}
+                  >
+                    {pickingLocalDirectory ? "Browsing..." : "Browse..."}
+                  </button>
+                </div>
+                <div style={mutedTextStyle}>
+                  Pick a local folder and HILDA will index it directly.
+                </div>
+              </div>
+            )}
+            <div style={modalActionRowStyle}>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsRepositoryModalOpen(false);
+                  setRepositoryForm({
+                    provider: "github",
+                    name: "",
+                    defaultBranch: "main",
+                    cloneUrl: "",
+                    localPath: "",
+                  });
+                }}
+                style={secondaryButtonStyle}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={!selectedWorkspace || submittingRepository}
+                style={buttonStyle}
+              >
+                {submittingRepository ? "Adding..." : "Add repository"}
+              </button>
+            </div>
+          </form>
+        </ModalShell>
+      ) : null}
     </main>
   );
 }
@@ -1288,6 +1430,77 @@ function getOverviewSection(
   title: string,
 ) {
   return overview?.sections?.find((section) => section.title === title) ?? null;
+}
+
+function formatOverviewChatBody(result: AnalysisResult): string {
+  const purpose = getOverviewSection(result, "Purpose")?.items[0];
+  const architecture = getOverviewSection(result, "Architecture")?.items ?? [];
+  const tooling = getOverviewSection(result, "Frameworks and tooling")?.items ?? [];
+  const runtime = getOverviewSection(result, "Runtime and operations")?.items ?? [];
+  const testing = getOverviewSection(result, "Testing and coverage")?.items ?? [];
+  const issues = getOverviewSection(result, "Observed gaps and issues")?.items ?? [];
+
+  const paragraphs = [
+    purpose ? `What It Is: ${purpose}` : null,
+    architecture.length > 0 ? `Architecture: ${architecture.slice(0, 2).join(" ")}` : null,
+    tooling.length > 0 ? `Tooling: ${tooling.slice(0, 3).join(" ")}` : null,
+    runtime.length > 0 ? `Runtime: ${runtime.slice(0, 3).join(" ")}` : null,
+    testing.length > 0 ? `Testing: ${testing.slice(0, 2).join(" ")}` : null,
+    issues.length > 0 ? `Risks: ${issues.slice(0, 2).join(" ")}` : null,
+  ].filter(Boolean);
+
+  if (paragraphs.length === 0) {
+    return result.answer;
+  }
+
+  return paragraphs.join("\n\n");
+}
+
+function renderChatEntryBody(entry: ChatEntry) {
+  if (entry.kind === "system" && entry.title === "Repository overview refreshed") {
+    const paragraphs = entry.body
+      .split(/\n{2,}/)
+      .map((paragraph) => paragraph.trim())
+      .filter(Boolean);
+
+    return (
+      <div style={{ display: "grid", gap: 12 }}>
+        {paragraphs.map((paragraph, index) => {
+          const separatorIndex = paragraph.indexOf(":");
+          const label =
+            separatorIndex > 0 ? paragraph.slice(0, separatorIndex) : null;
+          const value =
+            separatorIndex > 0
+              ? paragraph.slice(separatorIndex + 1).trim()
+              : paragraph;
+
+          return (
+            <div key={`${entry.id}-${index}`} style={{ lineHeight: 1.7 }}>
+              {label ? <strong>{label}: </strong> : null}
+              <span>{value}</span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  return <div style={{ lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{entry.body}</div>;
+}
+
+function getStatusDotColor(status: string) {
+  switch (status) {
+    case "indexed":
+      return "#4ade80";
+    case "syncing":
+      return "#60a5fa";
+    case "queued":
+      return "#facc15";
+    case "failed":
+      return "#f87171";
+    default:
+      return "#94a3b8";
+  }
 }
 
 function getOverviewMetric(
@@ -1362,6 +1575,159 @@ function formatIssueCount(
   return metadata?.githubIssuesOpen != null
     ? String(metadata.githubIssuesOpen)
     : "n/a";
+}
+
+function ModalShell({
+  title,
+  description,
+  onClose,
+  children,
+}: React.PropsWithChildren<{
+  title: string;
+  description: string;
+  onClose: () => void;
+}>) {
+  return (
+    <div style={modalBackdropStyle} onClick={onClose}>
+      <section
+        style={modalCardStyle}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div style={modalHeaderStyle}>
+          <div>
+            <div style={{ fontSize: 20, fontWeight: 700 }}>{title}</div>
+            <div style={{ ...mutedTextStyle, marginTop: 6 }}>{description}</div>
+          </div>
+          <button type="button" onClick={onClose} style={iconButtonStyle}>
+            <CloseIcon />
+          </button>
+        </div>
+        {children}
+      </section>
+    </div>
+  );
+}
+
+function IconFrame({
+  children,
+}: React.PropsWithChildren) {
+  return (
+    <span style={iconFrameStyle}>
+      {children}
+    </span>
+  );
+}
+
+function FolderTreeIcon() {
+  return (
+    <IconFrame>
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 6h6l2 2h10" />
+        <path d="M3 6v12h8" />
+        <path d="M13 12h8" />
+        <path d="M17 12v6" />
+        <path d="M13 18h8" />
+      </svg>
+    </IconFrame>
+  );
+}
+
+function FolderIcon() {
+  return (
+    <IconFrame>
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 7h6l2 2h10v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" />
+      </svg>
+    </IconFrame>
+  );
+}
+
+function GithubIcon() {
+  return (
+    <IconFrame>
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M9 19c-4.5 1.5-4.5-2.5-6.5-3m13 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 19.5 4.77 5.07 5.07 0 0 0 19.41 1S18.28.65 15.5 2.48a13.38 13.38 0 0 0-7 0C5.72.65 4.59 1 4.59 1A5.07 5.07 0 0 0 4.5 4.77 5.44 5.44 0 0 0 3 8.5c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 8.5 18.13V22" />
+      </svg>
+    </IconFrame>
+  );
+}
+
+function HardDriveIcon() {
+  return (
+    <IconFrame>
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="5" width="18" height="14" rx="2" />
+        <path d="M7 15h.01" />
+        <path d="M11 15h6" />
+      </svg>
+    </IconFrame>
+  );
+}
+
+function RefreshIcon() {
+  return (
+    <IconFrame>
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 2v6h-6" />
+        <path d="M3 12a9 9 0 0 1 15.55-6.36L21 8" />
+        <path d="M3 22v-6h6" />
+        <path d="M21 12a9 9 0 0 1-15.55 6.36L3 16" />
+      </svg>
+    </IconFrame>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <IconFrame>
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 5v14" />
+        <path d="M5 12h14" />
+      </svg>
+    </IconFrame>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <IconFrame>
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 6h18" />
+        <path d="M8 6V4h8v2" />
+        <path d="M19 6l-1 14H6L5 6" />
+        <path d="M10 11v6" />
+        <path d="M14 11v6" />
+      </svg>
+    </IconFrame>
+  );
+}
+
+function ChevronIcon({ open }: { open: boolean }) {
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        transform: open ? "rotate(90deg)" : "rotate(0deg)",
+        transition: "transform 120ms ease",
+        color: "#7c8aa0",
+      }}
+    >
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="m9 18 6-6-6-6" />
+      </svg>
+    </span>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <IconFrame>
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M18 6 6 18" />
+        <path d="m6 6 12 12" />
+      </svg>
+    </IconFrame>
+  );
 }
 
 function WorkflowPanel({
@@ -1978,7 +2344,8 @@ function ArtifactList({
 }
 
 const pageStyle: React.CSSProperties = {
-  minHeight: "100vh",
+  height: "100vh",
+  overflow: "hidden",
   background: "#0f1115",
   color: "#e5e7eb",
   fontFamily:
@@ -1986,34 +2353,33 @@ const pageStyle: React.CSSProperties = {
 };
 
 const shellStyle: React.CSSProperties = {
-  maxWidth: 1480,
+  maxWidth: 1560,
   margin: "0 auto",
-  padding: "24px 20px 40px",
+  height: "100vh",
+  padding: "16px 20px 16px 8px",
+  boxSizing: "border-box",
   display: "grid",
-  gridTemplateColumns: "320px minmax(0, 1fr)",
-  gap: 24,
-  alignItems: "start",
+  gridTemplateColumns: "292px minmax(0, 1fr)",
+  gap: 16,
+  alignItems: "stretch",
 };
 
 const sidebarStyle: React.CSSProperties = {
   display: "grid",
-  gap: 18,
-  position: "sticky",
-  top: 20,
+  gap: 12,
+  height: "100%",
+  minHeight: 0,
+  alignContent: "start",
+  overflow: "hidden",
 };
 
 const contentStyle: React.CSSProperties = {
   display: "grid",
-  gap: 20,
-};
-
-const brandCardStyle: React.CSSProperties = {
-  borderRadius: 24,
-  padding: 24,
-  background: "#171a21",
-  color: "#f3f4f6",
-  border: "1px solid #262b36",
-  boxShadow: "0 12px 32px rgba(0, 0, 0, 0.22)",
+  gap: 16,
+  height: "100%",
+  minHeight: 0,
+  gridTemplateRows: "auto auto minmax(0, 1fr)",
+  overflow: "hidden",
 };
 
 const repoHeaderCardStyle: React.CSSProperties = {
@@ -2037,14 +2403,211 @@ const eyebrowStyle: React.CSSProperties = {
   color: "#7c8aa0",
 };
 
-const sidebarButtonStyle: React.CSSProperties = {
-  textAlign: "left",
-  padding: 14,
+const sidebarHeaderStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+  padding: "4px 0 8px",
+};
+
+const sidebarBrandRowStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 12,
+};
+
+const brandMarkStyle: React.CSSProperties = {
+  width: 34,
+  height: 34,
+  borderRadius: 10,
+  display: "grid",
+  placeItems: "center",
+  background: "#171d26",
+  border: "1px solid #2a3340",
+  color: "#dbe4ee",
+  fontWeight: 800,
+};
+
+const sidebarBrandTitleStyle: React.CSSProperties = {
+  fontSize: 15,
+  fontWeight: 800,
+  letterSpacing: "0.06em",
+};
+
+const sidebarBrandSubtitleStyle: React.CSSProperties = {
+  fontSize: 12,
+  color: "#7c8aa0",
+  marginTop: 2,
+};
+
+const treePanelStyle: React.CSSProperties = {
+  minHeight: 0,
+  display: "grid",
+  gap: 8,
+  padding: "8px 6px 10px",
   borderRadius: 16,
+  background: "#12161d",
+  border: "1px solid #202733",
+};
+
+const treePanelHeaderStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  padding: "0 6px",
+};
+
+const treePanelTitleStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  fontSize: 12,
+  fontWeight: 700,
+  letterSpacing: "0.08em",
+  textTransform: "uppercase",
+  color: "#7c8aa0",
+};
+
+const treeListStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 6,
+  minHeight: 0,
+};
+
+const treeDetailsStyle: React.CSSProperties = {
+  borderRadius: 12,
+  overflow: "hidden",
+};
+
+const treeSummaryStyle: React.CSSProperties = {
+  listStyle: "none",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 10,
+  padding: "10px 10px",
+  borderRadius: 12,
   cursor: "pointer",
-  transition: "transform 120ms ease, box-shadow 120ms ease",
-  color: "#e5e7eb",
-  boxShadow: "0 6px 16px rgba(0, 0, 0, 0.12)",
+  userSelect: "none",
+};
+
+const treeSummaryLabelStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  minWidth: 0,
+  fontWeight: 600,
+};
+
+const treeCountStyle: React.CSSProperties = {
+  fontSize: 12,
+  color: "#7c8aa0",
+};
+
+const treeChildrenStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 8,
+  padding: "8px 0 0 26px",
+};
+
+const workspaceActionsRowStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 8,
+  flexWrap: "wrap",
+};
+
+const treeActionButtonStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 6,
+  border: "1px solid #29313d",
+  borderRadius: 999,
+  background: "#10151c",
+  color: "#c8d1dd",
+  padding: "6px 10px",
+  fontSize: 12,
+  cursor: "pointer",
+};
+
+const treeHintStyle: React.CSSProperties = {
+  color: "#7c8aa0",
+  fontSize: 13,
+  padding: "4px 8px 4px 2px",
+};
+
+const repoTreeListStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 4,
+};
+
+const repoTreeRowStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr) auto",
+  gap: 8,
+  alignItems: "center",
+  border: "1px solid transparent",
+  borderRadius: 12,
+  padding: "6px 8px",
+};
+
+const repoTreeButtonStyle: React.CSSProperties = {
+  border: "none",
+  background: "transparent",
+  color: "inherit",
+  padding: 0,
+  textAlign: "left",
+  cursor: "pointer",
+  display: "grid",
+  gap: 3,
+};
+
+const repoTreePrimaryStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  fontWeight: 600,
+  minWidth: 0,
+};
+
+const repoTreeMetaStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 6,
+  color: "#7c8aa0",
+  fontSize: 12,
+  paddingLeft: 24,
+};
+
+const statusDotStyle: React.CSSProperties = {
+  width: 7,
+  height: 7,
+  borderRadius: 999,
+  display: "inline-block",
+};
+
+const iconButtonStyle: React.CSSProperties = {
+  width: 34,
+  height: 34,
+  borderRadius: 10,
+  border: "1px solid #2a3340",
+  background: "#12161d",
+  color: "#c8d1dd",
+  display: "grid",
+  placeItems: "center",
+  cursor: "pointer",
+};
+
+const rowIconButtonStyle: React.CSSProperties = {
+  width: 28,
+  height: 28,
+  borderRadius: 8,
+  border: "1px solid transparent",
+  background: "transparent",
+  color: "#7c8aa0",
+  display: "grid",
+  placeItems: "center",
+  cursor: "pointer",
 };
 
 const inputStyle: React.CSSProperties = {
@@ -2159,7 +2722,8 @@ const repoHeaderActionsStyle: React.CSSProperties = {
 };
 
 const workspaceCanvasStyle: React.CSSProperties = {
-  minHeight: "68vh",
+  minHeight: 0,
+  height: "100%",
   border: "1px solid #262f3c",
   borderRadius: 24,
   background: "#141922",
@@ -2171,7 +2735,7 @@ const workspaceCanvasStyle: React.CSSProperties = {
 
 const chatHistoryStyle: React.CSSProperties = {
   padding: "28px 28px 16px",
-  minHeight: 480,
+  minHeight: 0,
   display: "grid",
   alignContent: "start",
   gap: 18,
@@ -2286,6 +2850,54 @@ const validationComposerStyle: React.CSSProperties = {
   gridTemplateColumns: "minmax(0, 1fr) auto",
   gap: 10,
   alignItems: "center",
+};
+
+const localPathBrowserRowStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr) auto",
+  gap: 10,
+  alignItems: "center",
+};
+
+const modalBackdropStyle: React.CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(6, 8, 12, 0.66)",
+  display: "grid",
+  placeItems: "center",
+  padding: 24,
+  zIndex: 100,
+};
+
+const modalCardStyle: React.CSSProperties = {
+  width: "min(520px, 100%)",
+  borderRadius: 18,
+  border: "1px solid #2a3340",
+  background: "#141922",
+  boxShadow: "0 24px 60px rgba(0,0,0,0.4)",
+  padding: 20,
+  display: "grid",
+  gap: 18,
+};
+
+const modalHeaderStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: 16,
+};
+
+const modalActionRowStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "flex-end",
+  gap: 10,
+};
+
+const iconFrameStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  lineHeight: 0,
 };
 
 const summaryPanelStyle: React.CSSProperties = {
