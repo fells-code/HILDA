@@ -20,10 +20,7 @@ export function PlanSection({
       >
         <ul style={{ margin: 0, paddingLeft: 20 }}>
           {items.map((item) => (
-            <li
-              key={item}
-              style={{ marginBottom: 8, lineHeight: 1.5, color: "#d6dbe3" }}
-            >
+            <li key={item} style={{ marginBottom: 8, lineHeight: 1.5, color: "#d6dbe3" }}>
               {item}
             </li>
           ))}

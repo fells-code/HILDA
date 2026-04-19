@@ -27,9 +27,7 @@ export function buildPatchDraft(
     ...plan.steps.map((step, index) => `${index + 1}. ${step}`),
     "",
     "Supporting evidence:",
-    ...evidence
-      .slice(0, 5)
-      .map((match) => `- ${match.path} (score ${match.score})`),
+    ...evidence.slice(0, 5).map((match) => `- ${match.path} (score ${match.score})`),
     "",
   ];
 

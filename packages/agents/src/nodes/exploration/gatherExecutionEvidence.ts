@@ -26,10 +26,7 @@ export async function gatherExecutionEvidenceNode(
     eventType: "graph_exploration_execution_evidence_gathered",
     eventDataJson: {
       commandGroupCount: commands.length,
-      commandCount: commands.reduce(
-        (count, group) => count + group.scripts.length,
-        0,
-      ),
+      commandCount: commands.reduce((count, group) => count + group.scripts.length, 0),
       packageManager: executionEvidence.packageManager,
     },
   });

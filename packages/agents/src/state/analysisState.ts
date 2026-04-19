@@ -1,9 +1,6 @@
 import type { RepositoryOverview } from "@hilda/shared";
 
-export type AnalysisIntent =
-  | "count_tests"
-  | "list_commands"
-  | "summarize_structure";
+export type AnalysisIntent = "count_tests" | "list_commands" | "summarize_structure";
 
 export interface AnalysisGraphState {
   taskId: string;

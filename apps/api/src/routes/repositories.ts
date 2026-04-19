@@ -88,8 +88,9 @@ router.post("/repositories", async (req, res, next) => {
       provider: parsed.data.provider,
       name: parsed.data.name,
       defaultBranch: parsed.data.defaultBranch,
-      cloneUrl: parsed.data.provider === "github" ? parsed.data.cloneUrl ?? null : null,
-      localPath: parsed.data.provider === "local" ? parsed.data.localPath ?? null : null,
+      cloneUrl: parsed.data.provider === "github" ? (parsed.data.cloneUrl ?? null) : null,
+      localPath:
+        parsed.data.provider === "local" ? (parsed.data.localPath ?? null) : null,
       externalId: parsed.data.externalId ?? null,
       status: "queued",
     });

@@ -155,10 +155,7 @@ function detectFrameworks(packageJson: PackageJsonLike): string[] {
   return detected.slice(0, 8);
 }
 
-function inferRepositoryShape(
-  topLevelEntries: string[],
-  frameworks: string[],
-): string {
+function inferRepositoryShape(topLevelEntries: string[], frameworks: string[]): string {
   const lowerEntries = new Set(topLevelEntries.map((entry) => entry.toLowerCase()));
   const hasApps = lowerEntries.has("apps");
   const hasPackages = lowerEntries.has("packages");
@@ -306,9 +303,7 @@ function buildCoverageSummary(
 ): string {
   if (coverageSummary?.linesPct != null) {
     const parts = [
-      coverageSummary.linesPct != null
-        ? `lines ${coverageSummary.linesPct}%`
-        : null,
+      coverageSummary.linesPct != null ? `lines ${coverageSummary.linesPct}%` : null,
       coverageSummary.functionsPct != null
         ? `functions ${coverageSummary.functionsPct}%`
         : null,
@@ -327,9 +322,9 @@ function buildCoverageSummary(
   }
 
   if (
-    files.some((file) =>
-      file.toLowerCase().includes("coverage") &&
-      file.toLowerCase().endsWith(".json"),
+    files.some(
+      (file) =>
+        file.toLowerCase().includes("coverage") && file.toLowerCase().endsWith(".json"),
     )
   ) {
     coverageSignals.push("coverage JSON artifacts");
@@ -385,7 +380,9 @@ function buildRisks(options: {
   }
 
   if (options.frameworks.includes("OpenAI SDK") && options.testFileCount === 0) {
-    risks.push("AI integration appears present, but no matching test safety net was detected.");
+    risks.push(
+      "AI integration appears present, but no matching test safety net was detected.",
+    );
   }
 
   return risks.slice(0, 5);
@@ -406,7 +403,9 @@ function buildMilestones(options: {
   }
 
   if (!options.coverageSummary) {
-    milestones.push("Add coverage reporting so repository health can be tracked automatically.");
+    milestones.push(
+      "Add coverage reporting so repository health can be tracked automatically.",
+    );
   }
 
   if (!options.hasCi) {
@@ -414,19 +413,27 @@ function buildMilestones(options: {
   }
 
   if (!options.scripts.includes("lint") || !options.scripts.includes("typecheck")) {
-    milestones.push("Standardize root validation scripts so the agent can run bounded checks safely.");
+    milestones.push(
+      "Standardize root validation scripts so the agent can run bounded checks safely.",
+    );
   }
 
   if (options.frameworks.includes("Turbo")) {
-    milestones.push("Document app/package responsibilities so the monorepo is easier to navigate.");
+    milestones.push(
+      "Document app/package responsibilities so the monorepo is easier to navigate.",
+    );
   }
 
   if (milestones.length === 0 && options.risks.length > 0) {
-    milestones.push("Turn the observed gaps into tracked engineering work with explicit ownership.");
+    milestones.push(
+      "Turn the observed gaps into tracked engineering work with explicit ownership.",
+    );
   }
 
   if (milestones.length === 0) {
-    milestones.push("Expand repository-specific diagnostics and validation workflows for agent use.");
+    milestones.push(
+      "Expand repository-specific diagnostics and validation workflows for agent use.",
+    );
   }
 
   return milestones.slice(0, 4);
@@ -495,12 +502,7 @@ export async function generateRepositoryOverview(
   const frameworks = detectFrameworks(packageJson ?? {});
   const readmeSummary = await extractReadmeSummary(repoPath, files);
   const repositoryShape = inferRepositoryShape(topLevelEntries, frameworks);
-  const purpose = inferPurpose(
-    packageJson,
-    readmeSummary,
-    repositoryShape,
-    frameworks,
-  );
+  const purpose = inferPurpose(packageJson, readmeSummary, repositoryShape, frameworks);
   const testFileCount = countTestFiles(files);
   const markdownCount = files.filter((file) => file.endsWith(".md")).length;
   const coverageSummary = await detectCoverageSummary(repoPath, files);
@@ -585,17 +587,16 @@ export async function generateRepositoryOverview(
       },
       {
         title: "Testing and coverage",
-        items: [
-          `Likely test files: ${testFileCount}`,
-          coverageSummaryText,
-        ],
+        items: [`Likely test files: ${testFileCount}`, coverageSummaryText],
       },
       {
         title: "Observed gaps and issues",
         items:
           risks.length > 0
             ? risks
-            : ["No obvious workflow gaps were detected from the current repository signals."],
+            : [
+                "No obvious workflow gaps were detected from the current repository signals.",
+              ],
       },
       {
         title: "Suggested milestones",
@@ -619,23 +620,13 @@ export async function generateRepositoryOverview(
   };
 }
 
-export function formatRepositoryOverviewSummary(
-  overview: RepositoryOverview,
-): string {
+export function formatRepositoryOverviewSummary(overview: RepositoryOverview): string {
   const sections = overview.sections ?? [];
   const purpose = sections.find((section) => section.title === "Purpose");
-  const languages = sections.find(
-    (section) => section.title === "Languages",
-  );
-  const testing = sections.find(
-    (section) => section.title === "Testing and coverage",
-  );
-  const risks = sections.find(
-    (section) => section.title === "Observed gaps and issues",
-  );
-  const milestones = sections.find(
-    (section) => section.title === "Suggested milestones",
-  );
+  const languages = sections.find((section) => section.title === "Languages");
+  const testing = sections.find((section) => section.title === "Testing and coverage");
+  const risks = sections.find((section) => section.title === "Observed gaps and issues");
+  const milestones = sections.find((section) => section.title === "Suggested milestones");
 
   return [
     overview.answer,

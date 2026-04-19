@@ -7,10 +7,7 @@ import {
 } from "sequelize";
 import { getSequelize } from "../sequelize";
 
-export class Task extends Model<
-  InferAttributes<Task>,
-  InferCreationAttributes<Task>
-> {
+export class Task extends Model<InferAttributes<Task>, InferCreationAttributes<Task>> {
   declare id: CreationOptional<string>;
   declare workspaceId: string;
   declare userId: string;

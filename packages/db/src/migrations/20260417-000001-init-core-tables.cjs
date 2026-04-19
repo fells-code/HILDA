@@ -152,13 +152,7 @@ module.exports = {
         allowNull: true,
       },
       status: {
-        type: Sequelize.ENUM(
-          "pending",
-          "queued",
-          "syncing",
-          "indexed",
-          "failed",
-        ),
+        type: Sequelize.ENUM("pending", "queued", "syncing", "indexed", "failed"),
         allowNull: false,
         defaultValue: "pending",
       },
@@ -195,13 +189,7 @@ module.exports = {
         allowNull: true,
       },
       status: {
-        type: Sequelize.ENUM(
-          "pending",
-          "queued",
-          "syncing",
-          "indexed",
-          "failed",
-        ),
+        type: Sequelize.ENUM("pending", "queued", "syncing", "indexed", "failed"),
         allowNull: false,
       },
       summary: {

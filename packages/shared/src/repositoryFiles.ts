@@ -59,9 +59,7 @@ async function listFilesWithGit(repoPath: string): Promise<string[] | null> {
   }
 }
 
-export async function listVisibleRepositoryFiles(
-  repoPath: string,
-): Promise<string[]> {
+export async function listVisibleRepositoryFiles(repoPath: string): Promise<string[]> {
   const gitFiles = await listFilesWithGit(repoPath);
 
   if (gitFiles) {

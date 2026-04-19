@@ -44,11 +44,7 @@ export async function runValidationGraph(input: ValidationGraphState) {
 export type { AnalysisGraphState, AnalysisIntent } from "./state/analysisState";
 export type { ExplorationGraphState, ExplorationIntent } from "./state/explorationState";
 export type { PatchEvidence, PatchGraphState } from "./state/patchState";
-export type {
-  GeneratedPlan,
-  PlanGraphState,
-  PlanMatch,
-} from "./state/planState";
+export type { GeneratedPlan, PlanGraphState, PlanMatch } from "./state/planState";
 export type { QuestionGraphState, QuestionMatch } from "./state/questionState";
 export type {
   ValidationCommandResult,

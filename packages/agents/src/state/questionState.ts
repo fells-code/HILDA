@@ -1,7 +1,4 @@
-export type QuestionIntent =
-  | "general"
-  | "locate_implementation"
-  | "debug_failure";
+export type QuestionIntent = "general" | "locate_implementation" | "debug_failure";
 
 export interface QuestionMatch {
   path: string;

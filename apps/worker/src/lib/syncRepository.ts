@@ -28,9 +28,7 @@ export async function syncRepository(
   }
 }
 
-export async function inspectLocalRepository(
-  localPath: string,
-): Promise<string | null> {
+export async function inspectLocalRepository(localPath: string): Promise<string | null> {
   await fs.access(localPath);
 
   try {

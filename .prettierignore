@@ -1,0 +1,10 @@
+dist
+build
+coverage
+node_modules
+data
+postgres-data
+redis-data
+**/*.d.ts
+packages/**/src/**/*.js
+*.log

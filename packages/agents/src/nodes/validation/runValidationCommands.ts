@@ -78,11 +78,7 @@ export async function runValidationCommandsNode(
     }
 
     for (const entry of state.commandsToRun) {
-      const result = await runCommand(
-        validationRepoPath,
-        entry.command,
-        entry.args,
-      );
+      const result = await runCommand(validationRepoPath, entry.command, entry.args);
       results.push(result);
     }
   } finally {

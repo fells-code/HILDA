@@ -51,10 +51,8 @@ function App() {
   const [repositoryMetadataCache, setRepositoryMetadataCache] = useState<
     Record<string, RepositoryMetadata>
   >({});
-  const [loadingOverviewRepositoryId, setLoadingOverviewRepositoryId] =
-    useState("");
-  const [loadingRepositoryMetadataId, setLoadingRepositoryMetadataId] =
-    useState("");
+  const [loadingOverviewRepositoryId, setLoadingOverviewRepositoryId] = useState("");
+  const [loadingRepositoryMetadataId, setLoadingRepositoryMetadataId] = useState("");
   const [loadingWorkspaces, setLoadingWorkspaces] = useState(true);
   const [loadingRepositories, setLoadingRepositories] = useState(false);
   const [workspaceName, setWorkspaceName] = useState("");
@@ -82,31 +80,21 @@ function App() {
   const [latestPlan, setLatestPlan] = useState<GeneratedPlan | null>(null);
   const [latestPlanTaskId, setLatestPlanTaskId] = useState("");
   const [latestPlanApprovalId, setLatestPlanApprovalId] = useState("");
-  const [latestPlanApprovals, setLatestPlanApprovals] = useState<
-    ApprovalRequest[]
-  >([]);
+  const [latestPlanApprovals, setLatestPlanApprovals] = useState<ApprovalRequest[]>([]);
   const [latestPlanTraces, setLatestPlanTraces] = useState<TaskTrace[]>([]);
-  const [latestPlanMatches, setLatestPlanMatches] = useState<QuestionMatch[]>(
-    [],
-  );
+  const [latestPlanMatches, setLatestPlanMatches] = useState<QuestionMatch[]>([]);
   const [creatingPatch, setCreatingPatch] = useState(false);
   const [latestPatchTaskId, setLatestPatchTaskId] = useState("");
   const [latestPatchApprovalId, setLatestPatchApprovalId] = useState("");
-  const [latestPatchApprovals, setLatestPatchApprovals] = useState<
-    ApprovalRequest[]
-  >([]);
-  const [latestPatchArtifacts, setLatestPatchArtifacts] = useState<
-    PatchArtifact[]
-  >([]);
+  const [latestPatchApprovals, setLatestPatchApprovals] = useState<ApprovalRequest[]>([]);
+  const [latestPatchArtifacts, setLatestPatchArtifacts] = useState<PatchArtifact[]>([]);
   const [latestPatchTraces, setLatestPatchTraces] = useState<TaskTrace[]>([]);
   const [runningValidation, setRunningValidation] = useState(false);
   const [latestValidationTaskId, setLatestValidationTaskId] = useState("");
   const [latestValidationArtifacts, setLatestValidationArtifacts] = useState<
     PatchArtifact[]
   >([]);
-  const [latestValidationTraces, setLatestValidationTraces] = useState<
-    TaskTrace[]
-  >([]);
+  const [latestValidationTraces, setLatestValidationTraces] = useState<TaskTrace[]>([]);
   const [validationTestCommand, setValidationTestCommand] = useState("");
   const [activeWorkflowPanel, setActiveWorkflowPanel] = useState<
     "idle" | "question" | "plan" | "patch" | "validation"
@@ -114,28 +102,25 @@ function App() {
   const [chatHistory, setChatHistory] = useState<ChatEntry[]>([]);
 
   const selectedWorkspace = useMemo(
-    () =>
-      workspaces.find((workspace) => workspace.id === selectedWorkspaceId) ??
-      null,
+    () => workspaces.find((workspace) => workspace.id === selectedWorkspaceId) ?? null,
     [workspaces, selectedWorkspaceId],
   );
 
   const selectedRepository = useMemo(
     () =>
-      repositories.find((repository) => repository.id === selectedRepositoryId) ??
-      null,
+      repositories.find((repository) => repository.id === selectedRepositoryId) ?? null,
     [repositories, selectedRepositoryId],
   );
 
   const selectedRepositoryIndex = selectedRepository
-    ? repositoryIndexes[selectedRepository.id] ?? null
+    ? (repositoryIndexes[selectedRepository.id] ?? null)
     : null;
 
   const selectedRepositoryOverview = selectedRepository
-    ? repositoryOverviewCache[selectedRepository.id] ?? null
+    ? (repositoryOverviewCache[selectedRepository.id] ?? null)
     : null;
   const selectedRepositoryMetadata = selectedRepository
-    ? repositoryMetadataCache[selectedRepository.id] ?? null
+    ? (repositoryMetadataCache[selectedRepository.id] ?? null)
     : null;
 
   const shouldPollRepositories = useMemo(
@@ -230,9 +215,7 @@ function App() {
         setSelectedWorkspaceId(response.workspaces[0].id);
       }
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to load workspaces",
-      );
+      setError(err instanceof Error ? err.message : "Failed to load workspaces");
     } finally {
       setLoadingWorkspaces(false);
     }
@@ -281,9 +264,7 @@ function App() {
         repositoryIndexesEqual(nextIndexes, current) ? current : nextIndexes,
       );
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to load repositories",
-      );
+      setError(err instanceof Error ? err.message : "Failed to load repositories");
     } finally {
       if (!background) {
         setLoadingRepositories(false);
@@ -318,9 +299,7 @@ function App() {
         }));
       }
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to generate overview",
-      );
+      setError(err instanceof Error ? err.message : "Failed to generate overview");
     } finally {
       setLoadingOverviewRepositoryId("");
     }
@@ -433,9 +412,7 @@ function App() {
       const taskResponse = await getTask(response.taskId);
       setTaskTraces(taskResponse.traces);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to search repository",
-      );
+      setError(err instanceof Error ? err.message : "Failed to search repository");
     } finally {
       setAskingQuestion(false);
     }
@@ -455,9 +432,7 @@ function App() {
       setLatestPlanTraces(taskResponse.traces);
       setLatestPlanApprovals(taskResponse.approvals);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to update approval",
-      );
+      setError(err instanceof Error ? err.message : "Failed to update approval");
     }
   }
 
@@ -518,9 +493,7 @@ function App() {
       setLatestPatchArtifacts(taskResponse.artifacts);
       setLatestPatchTraces(taskResponse.traces);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to update patch approval",
-      );
+      setError(err instanceof Error ? err.message : "Failed to update patch approval");
     }
   }
 
@@ -560,9 +533,7 @@ function App() {
     }
   }
 
-  async function handleCreateWorkspace(
-    event: React.FormEvent<HTMLFormElement>,
-  ) {
+  async function handleCreateWorkspace(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!workspaceName.trim()) {
@@ -579,17 +550,13 @@ function App() {
       await loadWorkspaces();
       setSelectedWorkspaceId(response.workspace.id);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to create workspace",
-      );
+      setError(err instanceof Error ? err.message : "Failed to create workspace");
     } finally {
       setSubmittingWorkspace(false);
     }
   }
 
-  async function handleCreateRepository(
-    event: React.FormEvent<HTMLFormElement>,
-  ) {
+  async function handleCreateRepository(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!selectedWorkspaceId) {
@@ -626,9 +593,7 @@ function App() {
 
       await loadRepositories(selectedWorkspaceId);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to create repository",
-      );
+      setError(err instanceof Error ? err.message : "Failed to create repository");
     } finally {
       setSubmittingRepository(false);
     }
@@ -649,9 +614,7 @@ function App() {
         name: current.name || selectedPath.split("/").filter(Boolean).at(-1) || "",
       }));
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to pick local directory",
-      );
+      setError(err instanceof Error ? err.message : "Failed to pick local directory");
     } finally {
       setPickingLocalDirectory(false);
     }
@@ -672,9 +635,7 @@ function App() {
     try {
       await deleteRepository(repository.id);
 
-      setRepositories((current) =>
-        current.filter((item) => item.id !== repository.id),
-      );
+      setRepositories((current) => current.filter((item) => item.id !== repository.id));
       setRepositoryIndexes((current) => {
         const next = { ...current };
         delete next[repository.id];
@@ -697,9 +658,7 @@ function App() {
         setSelectedRepositoryId(remainingRepositories[0]?.id ?? "");
       }
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to delete repository",
-      );
+      setError(err instanceof Error ? err.message : "Failed to delete repository");
     } finally {
       setDeletingRepositoryId("");
     }
@@ -778,9 +737,7 @@ function App() {
               <div style={brandMarkStyle}>H</div>
               <div>
                 <div style={sidebarBrandTitleStyle}>HILDA</div>
-                <div style={sidebarBrandSubtitleStyle}>
-                  Repo workspaces
-                </div>
+                <div style={sidebarBrandSubtitleStyle}>Repo workspaces</div>
               </div>
             </div>
             <button
@@ -809,9 +766,7 @@ function App() {
               <div style={treeListStyle}>
                 {workspaces.map((workspace) => {
                   const isSelectedWorkspace = workspace.id === selectedWorkspaceId;
-                  const workspaceRepositories = isSelectedWorkspace
-                    ? repositories
-                    : [];
+                  const workspaceRepositories = isSelectedWorkspace ? repositories : [];
 
                   return (
                     <details
@@ -822,9 +777,7 @@ function App() {
                       <summary
                         style={{
                           ...treeSummaryStyle,
-                          background: isSelectedWorkspace
-                            ? "#161d27"
-                            : "transparent",
+                          background: isSelectedWorkspace ? "#161d27" : "transparent",
                         }}
                         onClick={(event) => {
                           event.preventDefault();
@@ -875,8 +828,7 @@ function App() {
                           ) : (
                             <div style={repoTreeListStyle}>
                               {workspaceRepositories.map((repository) => {
-                                const index =
-                                  repositoryIndexes[repository.id] ?? null;
+                                const index = repositoryIndexes[repository.id] ?? null;
                                 const isSelectedRepo =
                                   repository.id === selectedRepositoryId;
 
@@ -931,9 +883,7 @@ function App() {
                                       onClick={() =>
                                         void handleDeleteRepository(repository)
                                       }
-                                      disabled={
-                                        deletingRepositoryId === repository.id
-                                      }
+                                      disabled={deletingRepositoryId === repository.id}
                                       style={rowIconButtonStyle}
                                       title="Delete repository"
                                     >
@@ -955,9 +905,7 @@ function App() {
         </aside>
 
         <section style={contentStyle}>
-          {error ? (
-            <div style={errorStyle}>{error}</div>
-          ) : null}
+          {error ? <div style={errorStyle}>{error}</div> : null}
 
           {!selectedWorkspace ? (
             <Card
@@ -965,8 +913,8 @@ function App() {
               subtitle="Create a workspace in the left sidebar to begin organizing repositories."
             >
               <p style={mutedTextStyle}>
-                HILDA works best when each workspace has a clean set of
-                repositories and a clear developer context.
+                HILDA works best when each workspace has a clean set of repositories and a
+                clear developer context.
               </p>
             </Card>
           ) : !selectedRepository ? (
@@ -975,8 +923,8 @@ function App() {
               subtitle={`Choose the repo you want to work on inside ${selectedWorkspace.name}.`}
             >
               <p style={mutedTextStyle}>
-                Once a repository is selected, HILDA will pre-load its overview
-                and make chat, planning, and validation available in one place.
+                Once a repository is selected, HILDA will pre-load its overview and make
+                chat, planning, and validation available in one place.
               </p>
             </Card>
           ) : (
@@ -1007,9 +955,7 @@ function App() {
                     <span style={heroMetaPillStyle}>
                       Last indexed{" "}
                       {selectedRepositoryIndex?.indexedAt
-                        ? new Date(
-                            selectedRepositoryIndex.indexedAt,
-                          ).toLocaleString()
+                        ? new Date(selectedRepositoryIndex.indexedAt).toLocaleString()
                         : "not yet"}
                     </span>
                   </div>
@@ -1022,20 +968,19 @@ function App() {
                   </p>
 
                   <div style={repoChipRowStyle}>
-                    {extractLanguageNames(selectedRepositoryOverview).map(
-                      (language) => (
-                        <span key={`language-${language}`} style={headerChipStyle}>
-                          {language}
-                        </span>
-                      ),
-                    )}
+                    {extractLanguageNames(selectedRepositoryOverview).map((language) => (
+                      <span key={`language-${language}`} style={headerChipStyle}>
+                        {language}
+                      </span>
+                    ))}
 
                     {getOverviewMetric(selectedRepositoryOverview, "Files scanned") ? (
                       <span style={headerChipStyle}>
-                        {getOverviewMetric(
-                          selectedRepositoryOverview,
-                          "Files scanned",
-                        )?.value} files
+                        {
+                          getOverviewMetric(selectedRepositoryOverview, "Files scanned")
+                            ?.value
+                        }{" "}
+                        files
                       </span>
                     ) : null}
 
@@ -1090,14 +1035,12 @@ function App() {
               </section>
 
               <details style={detailsStyle}>
-                <summary style={detailsSummaryStyle}>
-                  Full repository overview
-                </summary>
+                <summary style={detailsSummaryStyle}>Full repository overview</summary>
                 <div style={detailsContentStyle}>
                   {selectedRepository.status !== "indexed" ? (
                     <p style={mutedTextStyle}>
-                      This repository needs to finish indexing before HILDA can
-                      build a useful overview.
+                      This repository needs to finish indexing before HILDA can build a
+                      useful overview.
                     </p>
                   ) : loadingOverviewRepositoryId === selectedRepository.id ? (
                     <p style={mutedTextStyle}>Building repository overview...</p>
@@ -1122,8 +1065,8 @@ function App() {
                         Start a conversation with this repository
                       </div>
                       <div style={{ ...mutedTextStyle, maxWidth: 560 }}>
-                        Ask HILDA to understand the codebase, locate an
-                        implementation, debug a failure, or plan a change.
+                        Ask HILDA to understand the codebase, locate an implementation,
+                        debug a failure, or plan a change.
                       </div>
                     </div>
                   ) : (
@@ -1136,14 +1079,14 @@ function App() {
                               ? userChatBubbleStyle
                               : assistantChatBubbleStyle
                           }
-                          >
-                            <div style={chatMetaStyle}>
-                              {entry.role === "user" ? "You" : "HILDA"}
-                              {entry.title ? ` • ${entry.title}` : ""}
-                            </div>
-                            {renderChatEntryBody(entry)}
-                          </article>
-                        ))}
+                        >
+                          <div style={chatMetaStyle}>
+                            {entry.role === "user" ? "You" : "HILDA"}
+                            {entry.title ? ` • ${entry.title}` : ""}
+                          </div>
+                          {renderChatEntryBody(entry)}
+                        </article>
+                      ))}
                     </div>
                   )}
 
@@ -1193,9 +1136,7 @@ function App() {
                     <button
                       type="button"
                       style={quickChipStyle}
-                      onClick={() =>
-                        setQuestion("Where is authentication implemented?")
-                      }
+                      onClick={() => setQuestion("Where is authentication implemented?")}
                     >
                       Find implementation
                     </button>
@@ -1211,9 +1152,7 @@ function App() {
                     <button
                       type="button"
                       style={quickChipStyle}
-                      onClick={() =>
-                        setQuestion("How would we add a new feature here?")
-                      }
+                      onClick={() => setQuestion("How would we add a new feature here?")}
                     >
                       Plan feature
                     </button>
@@ -1230,9 +1169,7 @@ function App() {
                     />
                     <button
                       type="submit"
-                      disabled={
-                        selectedRepository.status !== "indexed" || askingQuestion
-                      }
+                      disabled={selectedRepository.status !== "indexed" || askingQuestion}
                       style={composerSendButtonStyle}
                     >
                       {askingQuestion ? "Working..." : "Send"}
@@ -1254,10 +1191,7 @@ function App() {
             setWorkspaceName("");
           }}
         >
-          <form
-            onSubmit={handleCreateWorkspace}
-            style={{ display: "grid", gap: 12 }}
-          >
+          <form onSubmit={handleCreateWorkspace} style={{ display: "grid", gap: 12 }}>
             <input
               value={workspaceName}
               onChange={(event) => setWorkspaceName(event.target.value)}
@@ -1276,11 +1210,7 @@ function App() {
               >
                 Cancel
               </button>
-              <button
-                type="submit"
-                disabled={submittingWorkspace}
-                style={buttonStyle}
-              >
+              <button type="submit" disabled={submittingWorkspace} style={buttonStyle}>
                 {submittingWorkspace ? "Creating..." : "Create workspace"}
               </button>
             </div>
@@ -1307,10 +1237,7 @@ function App() {
             });
           }}
         >
-          <form
-            onSubmit={handleCreateRepository}
-            style={{ display: "grid", gap: 12 }}
-          >
+          <form onSubmit={handleCreateRepository} style={{ display: "grid", gap: 12 }}>
             <select
               value={repositoryForm.provider}
               onChange={(event) =>
@@ -1425,10 +1352,7 @@ function App() {
   );
 }
 
-function getOverviewSection(
-  overview: AnalysisResult | null,
-  title: string,
-) {
+function getOverviewSection(overview: AnalysisResult | null, title: string) {
   return overview?.sections?.find((section) => section.title === title) ?? null;
 }
 
@@ -1437,9 +1361,9 @@ function formatOverviewChatBody(result: AnalysisResult): string {
   const architecture = (getOverviewSection(result, "Architecture")?.items ?? []).filter(
     (item) => !/:\s*none detected$/i.test(item),
   );
-  const tooling = (getOverviewSection(result, "Frameworks and tooling")?.items ?? []).filter(
-    (item) => !/^Detected:\s*$/i.test(item),
-  );
+  const tooling = (
+    getOverviewSection(result, "Frameworks and tooling")?.items ?? []
+  ).filter((item) => !/^Detected:\s*$/i.test(item));
   const runtime = getOverviewSection(result, "Runtime and operations")?.items ?? [];
   const testing = getOverviewSection(result, "Testing and coverage")?.items ?? [];
   const issues = getOverviewSection(result, "Observed gaps and issues")?.items ?? [];
@@ -1451,7 +1375,9 @@ function formatOverviewChatBody(result: AnalysisResult): string {
 
   const paragraphs = [
     `Summary: ${purpose ?? summary}`,
-    architecture.length > 0 ? `Architecture: ${architecture.slice(0, 2).join(" ")}` : null,
+    architecture.length > 0
+      ? `Architecture: ${architecture.slice(0, 2).join(" ")}`
+      : null,
     tooling.length > 0 ? `Tooling: ${tooling.slice(0, 3).join(" ")}` : null,
     runtime.length > 0 ? `Runtime: ${runtime.slice(0, 3).join(" ")}` : null,
     testing.length > 0 ? `Testing: ${testing.slice(0, 2).join(" ")}` : null,
@@ -1476,12 +1402,9 @@ function renderChatEntryBody(entry: ChatEntry) {
       <div style={{ display: "grid", gap: 12 }}>
         {paragraphs.map((paragraph, index) => {
           const separatorIndex = paragraph.indexOf(":");
-          const label =
-            separatorIndex > 0 ? paragraph.slice(0, separatorIndex) : null;
+          const label = separatorIndex > 0 ? paragraph.slice(0, separatorIndex) : null;
           const value =
-            separatorIndex > 0
-              ? paragraph.slice(separatorIndex + 1).trim()
-              : paragraph;
+            separatorIndex > 0 ? paragraph.slice(separatorIndex + 1).trim() : paragraph;
 
           return (
             <div key={`${entry.id}-${index}`} style={{ lineHeight: 1.7 }}>
@@ -1512,10 +1435,7 @@ function getStatusDotColor(status: string) {
   }
 }
 
-function getOverviewMetric(
-  overview: AnalysisResult | null,
-  label: string,
-) {
+function getOverviewMetric(overview: AnalysisResult | null, label: string) {
   return overview?.metrics?.find((metric) => metric.label === label) ?? null;
 }
 
@@ -1589,9 +1509,7 @@ function formatIssueCount(
     return "loading";
   }
 
-  return metadata?.githubIssuesOpen != null
-    ? String(metadata.githubIssuesOpen)
-    : "n/a";
+  return metadata?.githubIssuesOpen != null ? String(metadata.githubIssuesOpen) : "n/a";
 }
 
 function ModalShell({
@@ -1606,10 +1524,7 @@ function ModalShell({
 }>) {
   return (
     <div style={modalBackdropStyle} onClick={onClose}>
-      <section
-        style={modalCardStyle}
-        onClick={(event) => event.stopPropagation()}
-      >
+      <section style={modalCardStyle} onClick={(event) => event.stopPropagation()}>
         <div style={modalHeaderStyle}>
           <div>
             <div style={{ fontSize: 20, fontWeight: 700 }}>{title}</div>
@@ -1625,20 +1540,23 @@ function ModalShell({
   );
 }
 
-function IconFrame({
-  children,
-}: React.PropsWithChildren) {
-  return (
-    <span style={iconFrameStyle}>
-      {children}
-    </span>
-  );
+function IconFrame({ children }: React.PropsWithChildren) {
+  return <span style={iconFrameStyle}>{children}</span>;
 }
 
 function FolderTreeIcon() {
   return (
     <IconFrame>
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <svg
+        viewBox="0 0 24 24"
+        width="16"
+        height="16"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
         <path d="M3 6h6l2 2h10" />
         <path d="M3 6v12h8" />
         <path d="M13 12h8" />
@@ -1652,7 +1570,16 @@ function FolderTreeIcon() {
 function FolderIcon() {
   return (
     <IconFrame>
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <svg
+        viewBox="0 0 24 24"
+        width="16"
+        height="16"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
         <path d="M3 7h6l2 2h10v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" />
       </svg>
     </IconFrame>
@@ -1662,7 +1589,16 @@ function FolderIcon() {
 function GithubIcon() {
   return (
     <IconFrame>
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <svg
+        viewBox="0 0 24 24"
+        width="16"
+        height="16"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
         <path d="M9 19c-4.5 1.5-4.5-2.5-6.5-3m13 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 19.5 4.77 5.07 5.07 0 0 0 19.41 1S18.28.65 15.5 2.48a13.38 13.38 0 0 0-7 0C5.72.65 4.59 1 4.59 1A5.07 5.07 0 0 0 4.5 4.77 5.44 5.44 0 0 0 3 8.5c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 8.5 18.13V22" />
       </svg>
     </IconFrame>
@@ -1672,7 +1608,16 @@ function GithubIcon() {
 function HardDriveIcon() {
   return (
     <IconFrame>
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <svg
+        viewBox="0 0 24 24"
+        width="16"
+        height="16"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
         <rect x="3" y="5" width="18" height="14" rx="2" />
         <path d="M7 15h.01" />
         <path d="M11 15h6" />
@@ -1684,7 +1629,16 @@ function HardDriveIcon() {
 function RefreshIcon() {
   return (
     <IconFrame>
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <svg
+        viewBox="0 0 24 24"
+        width="16"
+        height="16"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
         <path d="M21 2v6h-6" />
         <path d="M3 12a9 9 0 0 1 15.55-6.36L21 8" />
         <path d="M3 22v-6h6" />
@@ -1697,7 +1651,16 @@ function RefreshIcon() {
 function PlusIcon() {
   return (
     <IconFrame>
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <svg
+        viewBox="0 0 24 24"
+        width="16"
+        height="16"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
         <path d="M12 5v14" />
         <path d="M5 12h14" />
       </svg>
@@ -1708,7 +1671,16 @@ function PlusIcon() {
 function TrashIcon() {
   return (
     <IconFrame>
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <svg
+        viewBox="0 0 24 24"
+        width="16"
+        height="16"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
         <path d="M3 6h18" />
         <path d="M8 6V4h8v2" />
         <path d="M19 6l-1 14H6L5 6" />
@@ -1729,7 +1701,16 @@ function ChevronIcon({ open }: { open: boolean }) {
         color: "#7c8aa0",
       }}
     >
-      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg
+        viewBox="0 0 24 24"
+        width="14"
+        height="14"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
         <path d="m9 18 6-6-6-6" />
       </svg>
     </span>
@@ -1739,7 +1720,16 @@ function ChevronIcon({ open }: { open: boolean }) {
 function CloseIcon() {
   return (
     <IconFrame>
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <svg
+        viewBox="0 0 24 24"
+        width="16"
+        height="16"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
         <path d="M18 6 6 18" />
         <path d="m6 6 12 12" />
       </svg>
@@ -1839,9 +1829,7 @@ function WorkflowPanel({
 
             {questionMatches.length > 0 ? (
               <details style={detailsStyle}>
-                <summary style={detailsSummaryStyle}>
-                  Evidence and citations
-                </summary>
+                <summary style={detailsSummaryStyle}>Evidence and citations</summary>
                 <div style={detailsContentStyle}>
                   <MatchList
                     title="Grounding retrieved for this answer"
@@ -2013,19 +2001,14 @@ function WorkflowPanel({
       ) : null}
 
       {latestPatchTaskId ? (
-        <details
-          style={detailsStyle}
-          open={activeWorkflowPanel === "validation"}
-        >
+        <details style={detailsStyle} open={activeWorkflowPanel === "validation"}>
           <summary style={detailsSummaryStyle}>Validation</summary>
           <div style={detailsContentStyle}>
             <div style={{ display: "grid", gap: 12 }}>
               <div style={validationComposerStyle}>
                 <input
                   value={validationTestCommand}
-                  onChange={(event) =>
-                    setValidationTestCommand(event.target.value)
-                  }
+                  onChange={(event) => setValidationTestCommand(event.target.value)}
                   placeholder="Optional test command, for example pnpm test -- --runInBand"
                   style={inputStyle}
                 />
@@ -2044,9 +2027,7 @@ function WorkflowPanel({
                   artifacts={latestValidationArtifacts}
                 />
               ) : (
-                <div style={mutedTextStyle}>
-                  No validation run yet for this diff.
-                </div>
+                <div style={mutedTextStyle}>No validation run yet for this diff.</div>
               )}
 
               {latestValidationTraces.length > 0 ? (
@@ -2056,10 +2037,7 @@ function WorkflowPanel({
                     {latestValidationTaskId ? `• ${latestValidationTaskId}` : ""}
                   </summary>
                   <div style={detailsContentStyle}>
-                    <TraceList
-                      title="Task trace"
-                      traces={latestValidationTraces}
-                    />
+                    <TraceList title="Task trace" traces={latestValidationTraces} />
                   </div>
                 </details>
               ) : null}
@@ -2113,9 +2091,7 @@ function RepositoryOverviewPanel({
         <div style={metricGridStyle}>
           {overview.metrics.map((metric) => (
             <article key={`${metric.label}-${metric.value}`} style={metricCardStyle}>
-              <div style={{ ...mutedTextStyle, marginBottom: 4 }}>
-                {metric.label}
-              </div>
+              <div style={{ ...mutedTextStyle, marginBottom: 4 }}>{metric.label}</div>
               <div style={{ fontWeight: 700 }}>{metric.value}</div>
             </article>
           ))}
@@ -2128,10 +2104,7 @@ function RepositoryOverviewPanel({
             <div style={compactSectionTitleStyle}>Architecture</div>
             <div style={{ display: "grid", gap: 6 }}>
               {architectureSection.items.slice(0, 2).map((item, index) => (
-                <div
-                  key={`architecture-${index}-${item}`}
-                  style={sectionItemStyle}
-                >
+                <div key={`architecture-${index}-${item}`} style={sectionItemStyle}>
                   {item}
                 </div>
               ))}
@@ -2185,10 +2158,7 @@ function RepositoryOverviewPanel({
             <div style={compactSectionTitleStyle}>Suggested next steps</div>
             <div style={{ display: "grid", gap: 6 }}>
               {milestonesSection.items.slice(0, 3).map((item, index) => (
-                <div
-                  key={`milestone-${index}-${item}`}
-                  style={sectionItemStyle}
-                >
+                <div key={`milestone-${index}-${item}`} style={sectionItemStyle}>
                   {item}
                 </div>
               ))}
@@ -2267,13 +2237,7 @@ function RepositoryOverviewPanel({
   );
 }
 
-function MatchList({
-  title,
-  matches,
-}: {
-  title: string;
-  matches: QuestionMatch[];
-}) {
+function MatchList({ title, matches }: { title: string; matches: QuestionMatch[] }) {
   return (
     <div style={{ display: "grid", gap: 12 }}>
       <div style={mutedTextStyle}>{title}</div>
@@ -2301,13 +2265,7 @@ function MatchList({
   );
 }
 
-function TraceList({
-  title,
-  traces,
-}: {
-  title: string;
-  traces: TaskTrace[];
-}) {
+function TraceList({ title, traces }: { title: string; traces: TaskTrace[] }) {
   return (
     <div style={{ display: "grid", gap: 8 }}>
       <div style={mutedTextStyle}>{title}</div>
@@ -2317,9 +2275,7 @@ function TraceList({
           <div style={{ ...mutedTextStyle, marginTop: 4 }}>
             {new Date(trace.createdAt).toLocaleString()}
           </div>
-          <pre style={tracePreStyle}>
-            {JSON.stringify(trace.eventDataJson, null, 2)}
-          </pre>
+          <pre style={tracePreStyle}>{JSON.stringify(trace.eventDataJson, null, 2)}</pre>
         </article>
       ))}
     </div>

@@ -2,12 +2,7 @@ export type Id = string;
 
 export type UserRole = "user" | "admin";
 
-export type RepositoryStatus =
-  | "pending"
-  | "queued"
-  | "syncing"
-  | "indexed"
-  | "failed";
+export type RepositoryStatus = "pending" | "queued" | "syncing" | "indexed" | "failed";
 
 export type TaskStatus =
   | "queued"
@@ -16,9 +11,12 @@ export type TaskStatus =
   | "completed"
   | "failed";
 
-export type RepositoryOverviewMetric = import("./repositoryOverview").RepositoryOverviewMetric;
-export type RepositoryOverviewSection = import("./repositoryOverview").RepositoryOverviewSection;
-export type RepositoryOverviewEvidence = import("./repositoryOverview").RepositoryOverviewEvidence;
+export type RepositoryOverviewMetric =
+  import("./repositoryOverview").RepositoryOverviewMetric;
+export type RepositoryOverviewSection =
+  import("./repositoryOverview").RepositoryOverviewSection;
+export type RepositoryOverviewEvidence =
+  import("./repositoryOverview").RepositoryOverviewEvidence;
 export type RepositoryOverview = import("./repositoryOverview").RepositoryOverview;
 
 export interface HealthResponse {

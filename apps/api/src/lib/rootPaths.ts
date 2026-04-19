@@ -23,7 +23,9 @@ export function getRepositoryWorkingPath(repositoryId: string): string {
   return path.resolve(getRepoStorageRoot(), repositoryId);
 }
 
-export function getRepositorySourcePath(repository: Pick<Repository, "id" | "provider" | "localPath">): string {
+export function getRepositorySourcePath(
+  repository: Pick<Repository, "id" | "provider" | "localPath">,
+): string {
   if (repository.provider === "local" && repository.localPath) {
     return repository.localPath;
   }

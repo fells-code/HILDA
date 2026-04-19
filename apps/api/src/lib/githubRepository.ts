@@ -3,9 +3,7 @@ export interface GitHubRepositoryRef {
   repo: string;
 }
 
-export function parseGitHubRepositoryRef(
-  cloneUrl: string,
-): GitHubRepositoryRef | null {
+export function parseGitHubRepositoryRef(cloneUrl: string): GitHubRepositoryRef | null {
   const sshMatch = cloneUrl.match(/^git@github\.com:([^/]+)\/(.+?)(?:\.git)?$/i);
 
   if (sshMatch) {
@@ -63,9 +61,7 @@ export async function fetchGitHubOpenIssuesCount(
       open_issues_count?: number;
     };
 
-    return typeof data.open_issues_count === "number"
-      ? data.open_issues_count
-      : null;
+    return typeof data.open_issues_count === "number" ? data.open_issues_count : null;
   } catch {
     return null;
   }

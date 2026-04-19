@@ -34,7 +34,9 @@ export interface ExplorationAnswerResult {
   model?: string;
 }
 
-function buildEvidenceList(input: GenerateExplorationAnswerInput): ExplorationEvidenceItem[] {
+function buildEvidenceList(
+  input: GenerateExplorationAnswerInput,
+): ExplorationEvidenceItem[] {
   const evidence: ExplorationEvidenceItem[] = [];
 
   for (const entry of input.repoMetadata?.topLevelEntries.slice(0, 8) ?? []) {
@@ -69,7 +71,8 @@ function buildEvidenceList(input: GenerateExplorationAnswerInput): ExplorationEv
     evidence.push({ label: "readme", value: input.docsEvidence.readmePath });
   }
 
-  for (const binEntry of input.repoMetadata?.rootPackageJson?.binEntries.slice(0, 4) ?? []) {
+  for (const binEntry of input.repoMetadata?.rootPackageJson?.binEntries.slice(0, 4) ??
+    []) {
     evidence.push({
       label: "bin_entry",
       value: `${binEntry.name} -> ${binEntry.path}`,
@@ -106,7 +109,6 @@ function summarizeDeveloperIdentity(input: GenerateExplorationAnswerInput): stri
   const frameworks = input.frameworkEvidence?.frameworks ?? [];
   const aiTooling = input.frameworkEvidence?.aiTooling ?? [];
   const entrypoints = input.entrypointEvidence?.entrypoints ?? [];
-  const hasCliBin = (input.repoMetadata?.rootPackageJson?.binEntries.length ?? 0) > 0;
 
   if (description) {
     return description;
@@ -114,7 +116,9 @@ function summarizeDeveloperIdentity(input: GenerateExplorationAnswerInput): stri
 
   if (repoShape === "CLI application") {
     const cliName =
-      input.repoMetadata?.rootPackageJson?.binEntries[0]?.name ?? packageName ?? "This repository";
+      input.repoMetadata?.rootPackageJson?.binEntries[0]?.name ??
+      packageName ??
+      "This repository";
     const languageHint = packageManager
       ? `${packageManager}/${frameworks.includes("CLI tooling") || frameworks.includes("Vitest") ? "TypeScript" : "Node"}`
       : "Node/TypeScript";
@@ -134,7 +138,8 @@ function summarizeDeveloperIdentity(input: GenerateExplorationAnswerInput): stri
 
 function buildArchitectureLines(input: GenerateExplorationAnswerInput): string[] {
   const lines: string[] = [];
-  const repoShape = input.structureEvidence?.repositoryShape ?? "General application repository";
+  const repoShape =
+    input.structureEvidence?.repositoryShape ?? "General application repository";
 
   lines.push(repoShape);
 
@@ -160,16 +165,21 @@ function buildArchitectureLines(input: GenerateExplorationAnswerInput): string[]
 }
 
 function buildToolingSummary(input: GenerateExplorationAnswerInput): string {
-  const frameworks = input.frameworkEvidence?.frameworks.filter(
-    (framework) => !["Cargo", "pyproject"].includes(framework),
-  ) ?? [];
+  const frameworks =
+    input.frameworkEvidence?.frameworks.filter(
+      (framework) => !["Cargo", "pyproject"].includes(framework),
+    ) ?? [];
   const runtimeTooling = input.executionEvidence?.workspaceTooling ?? [];
   const packageManager = input.repoMetadata?.workspaceConfig.packageManager;
-  const tooling = [...new Set([
-    ...frameworks,
-    ...runtimeTooling,
-    packageManager ? `${packageManager} workspace` : null,
-  ].filter(Boolean) as string[])];
+  const tooling = [
+    ...new Set(
+      [
+        ...frameworks,
+        ...runtimeTooling,
+        packageManager ? `${packageManager} workspace` : null,
+      ].filter(Boolean) as string[],
+    ),
+  ];
 
   if (tooling.length === 0) {
     if (input.repoMetadata?.manifestKind === "package_json") {
@@ -183,20 +193,18 @@ function buildToolingSummary(input: GenerateExplorationAnswerInput): string {
 }
 
 function buildFallbackAnswer(input: GenerateExplorationAnswerInput): RepositoryOverview {
-  const repoShape = input.structureEvidence?.repositoryShape ?? "General application repository";
-  const purpose =
-    input.docsEvidence?.readmeSummary ??
-    summarizeDeveloperIdentity(input);
-  const frameworks =
-    input.frameworkEvidence?.frameworks.filter(
-      (framework) => !["Cargo", "pyproject"].includes(framework),
-    ).length
-      ? input.frameworkEvidence.frameworks
-          .filter((framework) => !["Cargo", "pyproject"].includes(framework))
-          .join(", ")
-      : input.repoMetadata?.manifestKind === "package_json"
-        ? "JavaScript/TypeScript runtime signals"
-        : "no major frameworks were confidently detected";
+  const repoShape =
+    input.structureEvidence?.repositoryShape ?? "General application repository";
+  const purpose = input.docsEvidence?.readmeSummary ?? summarizeDeveloperIdentity(input);
+  const frameworks = input.frameworkEvidence?.frameworks.filter(
+    (framework) => !["Cargo", "pyproject"].includes(framework),
+  ).length
+    ? input.frameworkEvidence.frameworks
+        .filter((framework) => !["Cargo", "pyproject"].includes(framework))
+        .join(", ")
+    : input.repoMetadata?.manifestKind === "package_json"
+      ? "JavaScript/TypeScript runtime signals"
+      : "no major frameworks were confidently detected";
   const serviceModel =
     input.structureEvidence?.apps.length || input.structureEvidence?.packages.length
       ? [
@@ -217,10 +225,9 @@ function buildFallbackAnswer(input: GenerateExplorationAnswerInput): RepositoryO
 
   switch (input.intent) {
     case "commands_summary":
-      answer =
-        input.executionEvidence?.commands.length
-          ? `I found ${input.executionEvidence.commands.reduce((count, group) => count + group.scripts.length, 0)} runnable package scripts across ${input.executionEvidence.commands.length} manifest${input.executionEvidence.commands.length === 1 ? "" : "s"}.`
-          : "I could not find runnable package scripts in the visible manifests for this repository.";
+      answer = input.executionEvidence?.commands.length
+        ? `I found ${input.executionEvidence.commands.reduce((count, group) => count + group.scripts.length, 0)} runnable package scripts across ${input.executionEvidence.commands.length} manifest${input.executionEvidence.commands.length === 1 ? "" : "s"}.`
+        : "I could not find runnable package scripts in the visible manifests for this repository.";
       break;
     case "test_count":
       answer = `I found ${input.testingEvidence?.testCount ?? 0} likely test files in the visible repository contents.`;
@@ -229,13 +236,12 @@ function buildFallbackAnswer(input: GenerateExplorationAnswerInput): RepositoryO
       answer = `The strongest framework signals point to ${frameworks}.`;
       break;
     case "entrypoints_summary":
-      answer =
-        input.entrypointEvidence?.entrypoints.length
-          ? `The most likely entrypoints are ${input.entrypointEvidence.entrypoints
-              .slice(0, 4)
-              .map((entry) => `${entry.path} (${entry.reason})`)
-              .join(", ")}.`
-          : "I could not identify strong entrypoint candidates from visible bootstrap files and scripts.";
+      answer = input.entrypointEvidence?.entrypoints.length
+        ? `The most likely entrypoints are ${input.entrypointEvidence.entrypoints
+            .slice(0, 4)
+            .map((entry) => `${entry.path} (${entry.reason})`)
+            .join(", ")}.`
+        : "I could not identify strong entrypoint candidates from visible bootstrap files and scripts.";
       break;
     case "architecture_summary":
       answer = `${repoShape} organized around ${serviceModel}. ${buildToolingSummary(input)}`;
@@ -283,39 +289,38 @@ function buildFallbackAnswer(input: GenerateExplorationAnswerInput): RepositoryO
     },
     {
       title: "Execution and commands",
-      items:
-        input.executionEvidence?.commands.length
-          ? input.executionEvidence.commands
-              .slice(0, 4)
-              .flatMap((group) =>
-                group.scripts
-                  .slice(0, 4)
-                  .map(
-                    (script) =>
-                      `${group.manifestPath}#${script.name}: ${script.command}`,
-                  ),
-              )
-          : ["No package scripts were detected in visible manifests."],
+      items: input.executionEvidence?.commands.length
+        ? input.executionEvidence.commands
+            .slice(0, 4)
+            .flatMap((group) =>
+              group.scripts
+                .slice(0, 4)
+                .map(
+                  (script) => `${group.manifestPath}#${script.name}: ${script.command}`,
+                ),
+            )
+        : ["No package scripts were detected in visible manifests."],
     },
     {
       title: "Frameworks and tooling",
-      items:
-        input.frameworkEvidence?.frameworks.length
-          ? [
-              `Detected: ${input.frameworkEvidence.frameworks
+      items: input.frameworkEvidence?.frameworks.length
+        ? [
+            `Detected: ${
+              input.frameworkEvidence.frameworks
                 .filter((framework) => !["Cargo", "pyproject"].includes(framework))
-                .join(", ") || input.frameworkEvidence.frameworks.join(", ")}`,
-              ...(input.repoMetadata?.rootPackageJson?.binEntries.length
-                ? [
-                    `CLI entrypoints: ${input.repoMetadata.rootPackageJson.binEntries
-                      .map((entry) => `${entry.name} -> ${entry.path}`)
-                      .join(", ")}`,
-                  ]
-                : []),
-              ...(input.frameworkEvidence.packageSignals.slice(0, 3) ?? []),
-              ...(input.frameworkEvidence.configSignals.slice(0, 2) ?? []),
-            ]
-          : ["No major frameworks were confidently detected."],
+                .join(", ") || input.frameworkEvidence.frameworks.join(", ")
+            }`,
+            ...(input.repoMetadata?.rootPackageJson?.binEntries.length
+              ? [
+                  `CLI entrypoints: ${input.repoMetadata.rootPackageJson.binEntries
+                    .map((entry) => `${entry.name} -> ${entry.path}`)
+                    .join(", ")}`,
+                ]
+              : []),
+            ...(input.frameworkEvidence.packageSignals.slice(0, 3) ?? []),
+            ...(input.frameworkEvidence.configSignals.slice(0, 2) ?? []),
+          ]
+        : ["No major frameworks were confidently detected."],
     },
     {
       title: "Testing and entrypoints",

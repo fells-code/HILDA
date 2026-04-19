@@ -23,13 +23,9 @@ export async function planValidationCommandsNode(
     throw new Error("packageJsonPath is missing from graph state");
   }
 
-  const packageJsonRaw = await fs
-    .readFile(state.packageJsonPath, "utf8")
-    .catch(() => {
-      throw new Error(
-        "No package.json found in indexed repository working path",
-      );
-    });
+  const packageJsonRaw = await fs.readFile(state.packageJsonPath, "utf8").catch(() => {
+    throw new Error("No package.json found in indexed repository working path");
+  });
 
   const packageJson = JSON.parse(packageJsonRaw) as {
     scripts?: Record<string, string>;

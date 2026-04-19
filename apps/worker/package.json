@@ -1,24 +1,24 @@
 {
-    "name": "@hilda/worker",
-    "version": "0.1.0",
-    "private": true,
-    "type": "module",
-    "scripts": {
-        "build": "tsc -p tsconfig.json",
-        "dev": "tsx watch src/index.ts",
-        "lint": "tsc -p tsconfig.json --noEmit",
-        "typecheck": "tsc -p tsconfig.json --noEmit",
-        "test": "echo worker-ok",
-        "clean": "rm -rf dist"
-    },
-    "dependencies": {
-        "@hilda/db": "workspace:*",
-        "@hilda/shared": "workspace:*",
-        "simple-git": "^3.36.0"
-    },
-    "devDependencies": {
-        "@types/node": "^22.19.17",
-        "dotenv": "^16.6.1",
-        "tsx": "^4.19.1"
-    }
+  "name": "@hilda/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/index.ts",
+    "lint": "eslint \"src/**/*.ts\"",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "echo worker-ok",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@hilda/db": "workspace:*",
+    "@hilda/shared": "workspace:*",
+    "simple-git": "^3.36.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.17",
+    "dotenv": "^16.6.1",
+    "tsx": "^4.19.1"
+  }
 }

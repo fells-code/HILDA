@@ -1,9 +1,6 @@
 import { TaskTrace } from "@hilda/db";
 import { generateRepositoryOverview } from "@hilda/shared";
-import {
-  countTestFiles,
-  listPackageScripts,
-} from "../../lib/repoAnalysis";
+import { countTestFiles, listPackageScripts } from "../../lib/repoAnalysis";
 import type { AnalysisGraphState } from "../../state/analysisState";
 
 export async function runAnalysisNode(

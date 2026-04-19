@@ -18,8 +18,7 @@ async function start() {
   const { devAuth } = await import("./middleware/devAuth");
   const workspacesRouter = (await import("./routes/workspaces")).default;
   const repositoriesRouter = (await import("./routes/repositories")).default;
-  const repositoryIndexesRouter = (await import("./routes/repositoryIndexes"))
-    .default;
+  const repositoryIndexesRouter = (await import("./routes/repositoryIndexes")).default;
   const questionsRouter = (await import("./routes/questions")).default;
   const tasksRouter = (await import("./routes/tasks")).default;
   const plansRouter = (await import("./routes/plans")).default;

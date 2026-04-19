@@ -1,8 +1,6 @@
 import type { ValidationCommandResult } from "../state/validationState";
 
-export function renderValidationReport(
-  results: ValidationCommandResult[],
-): string {
+export function renderValidationReport(results: ValidationCommandResult[]): string {
   if (results.length === 0) {
     return "No validation commands were run.";
   }

@@ -9,14 +9,9 @@ export type RepoAnalysisIntent =
   | "framework_detection"
   | "entrypoints_summary";
 
-export type QuestionIntent =
-  | "general"
-  | "locate_implementation"
-  | "debug_failure";
+export type QuestionIntent = "general" | "locate_implementation" | "debug_failure";
 
-export type PlanIntent =
-  | "propose_change"
-  | "implementation_request";
+export type PlanIntent = "propose_change" | "implementation_request";
 
 export function routePrompt(prompt: string): {
   route: RoutedIntent;
@@ -101,9 +96,7 @@ export function routePrompt(prompt: string): {
     };
   }
 
-  if (
-    lower.includes("what does it do")
-  ) {
+  if (lower.includes("what does it do")) {
     return {
       route: "repo_analysis",
       analysisIntent: "purpose_summary",

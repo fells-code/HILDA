@@ -82,10 +82,7 @@ function extractQueryTerms(question: string): string[] {
 
   const filteredTerms = rawTerms.filter((term) => !STOP_WORDS.has(term));
 
-  return [...new Set(filteredTerms.length > 0 ? filteredTerms : rawTerms)].slice(
-    0,
-    12,
-  );
+  return [...new Set(filteredTerms.length > 0 ? filteredTerms : rawTerms)].slice(0, 12);
 }
 
 function countOccurrences(haystack: string, needle: string): number {

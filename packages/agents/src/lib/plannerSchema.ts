@@ -29,13 +29,6 @@ export const plannerJsonSchema = {
         items: { type: "string" },
       },
     },
-    required: [
-      "summary",
-      "assumptions",
-      "impactedFiles",
-      "steps",
-      "risks",
-      "validation",
-    ],
+    required: ["summary", "assumptions", "impactedFiles", "steps", "risks", "validation"],
   },
 } as const;

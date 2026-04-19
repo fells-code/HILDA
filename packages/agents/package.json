@@ -1,26 +1,26 @@
 {
-    "name": "@hilda/agents",
-    "version": "0.1.0",
-    "private": true,
-    "type": "module",
-    "main": "src/index.ts",
-    "types": "src/index.ts",
-    "scripts": {
-        "build": "tsc -p tsconfig.json",
-        "dev": "tsc -p tsconfig.json --watch",
-        "lint": "tsc -p tsconfig.json --noEmit",
-        "typecheck": "tsc -p tsconfig.json --noEmit",
-        "test": "echo agents-ok",
-        "clean": "rm -rf dist"
-    },
-    "dependencies": {
-        "@hilda/db": "workspace:*",
-        "@hilda/shared": "workspace:*",
-        "zod": "^3.24.1",
-        "openai": "^4.103.0",
-        "@langchain/langgraph": "^0.2.39"
-    },
-    "devDependencies": {
-        "@types/node": "^22.7.4"
-    }
+  "name": "@hilda/agents",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "lint": "eslint \"src/**/*.ts\"",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "echo agents-ok",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@hilda/db": "workspace:*",
+    "@hilda/shared": "workspace:*",
+    "zod": "^3.24.1",
+    "openai": "^4.103.0",
+    "@langchain/langgraph": "^0.2.39"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.4"
+  }
 }

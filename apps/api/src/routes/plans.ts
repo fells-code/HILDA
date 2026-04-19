@@ -1,12 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import {
-  ApprovalRequest,
-  Repository,
-  Task,
-  TaskTrace,
-  Workspace,
-} from "@hilda/db";
+import { ApprovalRequest, Repository, Task, TaskTrace, Workspace } from "@hilda/db";
 import { runPlanGraph } from "@hilda/agents";
 import { requireAuthUser } from "../middleware/devAuth";
 
@@ -146,9 +140,7 @@ router.post("/approval-requests/:approvalRequestId", async (req, res, next) => {
       return;
     }
 
-    const approval = await ApprovalRequest.findByPk(
-      req.params.approvalRequestId,
-    );
+    const approval = await ApprovalRequest.findByPk(req.params.approvalRequestId);
 
     if (!approval) {
       res.status(404).json({

@@ -1,7 +1,5 @@
 import { TaskTrace } from "@hilda/db";
-import {
-  gatherDocsEvidence,
-} from "../../lib/explorationTools";
+import { gatherDocsEvidence } from "../../lib/explorationTools";
 import { shouldGatherDocsEvidence } from "../../lib/explorationIntent";
 import type { ExplorationGraphState } from "../../state/explorationState";
 

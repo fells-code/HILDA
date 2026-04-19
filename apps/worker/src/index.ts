@@ -18,7 +18,6 @@ import { inspectLocalRepository, syncRepository } from "./lib/syncRepository";
 
 async function processOneRepository(): Promise<boolean> {
   const db = await import("@hilda/db");
-  const { Repository } = db;
   const {
     connectDatabase,
     initModels,
@@ -72,8 +71,7 @@ async function processOneRepository(): Promise<boolean> {
     console.log(`Indexed repository ${repository.name}`);
     return true;
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unknown indexing failure";
+    const message = error instanceof Error ? error.message : "Unknown indexing failure";
 
     await markRepositoryFailed(repository.id, message);
     console.error(`Failed indexing repository ${repository.name}`);

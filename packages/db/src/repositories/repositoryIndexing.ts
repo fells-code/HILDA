@@ -8,13 +8,8 @@ export async function findNextQueuedRepository(): Promise<Repository | null> {
   });
 }
 
-export async function markRepositorySyncing(
-  repositoryId: string,
-): Promise<void> {
-  await Repository.update(
-    { status: "syncing" },
-    { where: { id: repositoryId } },
-  );
+export async function markRepositorySyncing(repositoryId: string): Promise<void> {
+  await Repository.update({ status: "syncing" }, { where: { id: repositoryId } });
 
   await RepositoryIndex.create({
     repositoryId,
@@ -30,10 +25,7 @@ export async function markRepositoryIndexed(
   summary: string,
   commitSha: string | null,
 ): Promise<void> {
-  await Repository.update(
-    { status: "indexed" },
-    { where: { id: repositoryId } },
-  );
+  await Repository.update({ status: "indexed" }, { where: { id: repositoryId } });
 
   const latestIndex = await RepositoryIndex.findOne({
     where: { repositoryId },
@@ -54,10 +46,7 @@ export async function markRepositoryFailed(
   repositoryId: string,
   summary: string,
 ): Promise<void> {
-  await Repository.update(
-    { status: "failed" },
-    { where: { id: repositoryId } },
-  );
+  await Repository.update({ status: "failed" }, { where: { id: repositoryId } });
 
   const latestIndex = await RepositoryIndex.findOne({
     where: { repositoryId },

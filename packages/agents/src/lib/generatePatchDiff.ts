@@ -87,10 +87,7 @@ export async function generatePatchDiff(
             "Supporting evidence:",
             ...evidence
               .slice(0, 6)
-              .map(
-                (match) =>
-                  `- ${match.path} (score ${match.score})\n${match.snippet}`,
-              ),
+              .map((match) => `- ${match.path} (score ${match.score})\n${match.snippet}`),
             "",
             "Candidate file contents:",
             ...candidateFiles.map((file) =>

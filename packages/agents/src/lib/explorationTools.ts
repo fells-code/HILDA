@@ -25,19 +25,47 @@ interface PackageJsonLike {
 
 const FRAMEWORK_DETECTIONS = [
   { label: "React", packages: ["react"], configPatterns: [] },
-  { label: "Next.js", packages: ["next"], configPatterns: ["next.config.js", "next.config.ts", "next.config.mjs"] },
-  { label: "Vite", packages: ["vite"], configPatterns: ["vite.config.ts", "vite.config.js", "vite.config.mjs"] },
+  {
+    label: "Next.js",
+    packages: ["next"],
+    configPatterns: ["next.config.js", "next.config.ts", "next.config.mjs"],
+  },
+  {
+    label: "Vite",
+    packages: ["vite"],
+    configPatterns: ["vite.config.ts", "vite.config.js", "vite.config.mjs"],
+  },
   { label: "Express", packages: ["express"], configPatterns: [] },
   { label: "Fastify", packages: ["fastify"], configPatterns: [] },
   { label: "NestJS", packages: ["@nestjs/core"], configPatterns: ["nest-cli.json"] },
   { label: "Sequelize", packages: ["sequelize"], configPatterns: [] },
-  { label: "Prisma", packages: ["prisma", "@prisma/client"], configPatterns: ["prisma/schema.prisma"] },
+  {
+    label: "Prisma",
+    packages: ["prisma", "@prisma/client"],
+    configPatterns: ["prisma/schema.prisma"],
+  },
   { label: "LangGraph", packages: ["@langchain/langgraph"], configPatterns: [] },
   { label: "OpenAI SDK", packages: ["openai"], configPatterns: [] },
-  { label: "Vitest", packages: ["vitest"], configPatterns: ["vitest.config.ts", "vitest.config.js"] },
-  { label: "Jest", packages: ["jest"], configPatterns: ["jest.config.ts", "jest.config.js", "jest.config.cjs"] },
-  { label: "Playwright", packages: ["playwright", "@playwright/test"], configPatterns: ["playwright.config.ts", "playwright.config.js"] },
-  { label: "CLI tooling", packages: ["commander", "yargs", "cac", "clipanion", "@oclif/core"], configPatterns: [] },
+  {
+    label: "Vitest",
+    packages: ["vitest"],
+    configPatterns: ["vitest.config.ts", "vitest.config.js"],
+  },
+  {
+    label: "Jest",
+    packages: ["jest"],
+    configPatterns: ["jest.config.ts", "jest.config.js", "jest.config.cjs"],
+  },
+  {
+    label: "Playwright",
+    packages: ["playwright", "@playwright/test"],
+    configPatterns: ["playwright.config.ts", "playwright.config.js"],
+  },
+  {
+    label: "CLI tooling",
+    packages: ["commander", "yargs", "cac", "clipanion", "@oclif/core"],
+    configPatterns: [],
+  },
   { label: "Turbo", packages: ["turbo"], configPatterns: ["turbo.json"] },
 ];
 
@@ -184,11 +212,18 @@ function inferRepositoryShape(
     return "Web application";
   }
 
-  if (frameworks.includes("React") && (frameworks.includes("Express") || frameworks.includes("Fastify"))) {
+  if (
+    frameworks.includes("React") &&
+    (frameworks.includes("Express") || frameworks.includes("Fastify"))
+  ) {
     return "Full-stack application";
   }
 
-  if (frameworks.includes("Express") || frameworks.includes("Fastify") || frameworks.includes("NestJS")) {
+  if (
+    frameworks.includes("Express") ||
+    frameworks.includes("Fastify") ||
+    frameworks.includes("NestJS")
+  ) {
     return "Backend service";
   }
 
@@ -205,7 +240,11 @@ function inferRepositoryShape(
 
 function findPackageJsonPaths(files: string[]): string[] {
   return files
-    .filter((file) => file === "package.json" || /^(apps|packages|services)\/[^/]+\/package\.json$/.test(file))
+    .filter(
+      (file) =>
+        file === "package.json" ||
+        /^(apps|packages|services)\/[^/]+\/package\.json$/.test(file),
+    )
     .slice(0, 24);
 }
 
@@ -219,7 +258,9 @@ export async function readRootPackageJson(
     return null;
   }
 
-  const packageJson = await readJsonFile<PackageJsonLike>(path.join(repoPath, "package.json"));
+  const packageJson = await readJsonFile<PackageJsonLike>(
+    path.join(repoPath, "package.json"),
+  );
 
   if (!packageJson) {
     return null;
@@ -227,7 +268,7 @@ export async function readRootPackageJson(
 
   const workspacePatterns = Array.isArray(packageJson.workspaces)
     ? packageJson.workspaces
-    : packageJson.workspaces?.packages ?? [];
+    : (packageJson.workspaces?.packages ?? []);
 
   return {
     manifestPath: "package.json",
@@ -284,8 +325,7 @@ export function listTopLevelEntries(files: string[]): string[] {
 }
 
 export function findReadmeAndDocs(files: string[]) {
-  const readmePath =
-    README_FILES.find((candidate) => files.includes(candidate)) ?? null;
+  const readmePath = README_FILES.find((candidate) => files.includes(candidate)) ?? null;
   const docsFiles = files
     .filter(
       (file) =>
@@ -346,7 +386,17 @@ export async function summarizeDirectoryStructure(
   const apps = getNestedDirectoryNames(files, "apps");
   const packages = getNestedDirectoryNames(files, "packages");
   const notableDirectories = topLevelEntries.filter((entry) =>
-    ["apps", "packages", "services", "src", "docs", "scripts", "tests", "test", "infra"].includes(entry.toLowerCase()),
+    [
+      "apps",
+      "packages",
+      "services",
+      "src",
+      "docs",
+      "scripts",
+      "tests",
+      "test",
+      "infra",
+    ].includes(entry.toLowerCase()),
   );
   const configFiles = findConfigFiles(files);
   const dockerAndInfraFiles = findDockerAndInfraFiles(files);
@@ -378,7 +428,9 @@ export async function listPackageScripts(
   const commandGroups: ExecutionEvidence["commands"] = [];
 
   for (const manifestPath of manifests) {
-    const manifest = await readJsonFile<PackageJsonLike>(path.join(repoPath, manifestPath));
+    const manifest = await readJsonFile<PackageJsonLike>(
+      path.join(repoPath, manifestPath),
+    );
 
     if (!manifest?.scripts || Object.keys(manifest.scripts).length === 0) {
       continue;
@@ -417,14 +469,16 @@ export function discoverTestFiles(files: string[]): TestingEvidence {
     );
   });
 
-  const coverageFiles = files.filter((file) => {
-    const lower = file.toLowerCase();
-    return (
-      lower.includes("coverage") ||
-      lower.endsWith("lcov.info") ||
-      lower.endsWith("coverage-summary.json")
-    );
-  }).slice(0, 10);
+  const coverageFiles = files
+    .filter((file) => {
+      const lower = file.toLowerCase();
+      return (
+        lower.includes("coverage") ||
+        lower.endsWith("lcov.info") ||
+        lower.endsWith("coverage-summary.json")
+      );
+    })
+    .slice(0, 10);
 
   return {
     testCount: testFiles.length,
@@ -441,7 +495,9 @@ export async function detectFrameworks(
   const packageNames = new Set<string>();
 
   for (const manifestPath of manifests) {
-    const manifest = await readJsonFile<PackageJsonLike>(path.join(repoPath, manifestPath));
+    const manifest = await readJsonFile<PackageJsonLike>(
+      path.join(repoPath, manifestPath),
+    );
     for (const dependencyName of Object.keys(manifest?.dependencies ?? {})) {
       packageNames.add(dependencyName);
     }
@@ -508,7 +564,9 @@ export function findLikelyEntrypoints(
   }
 
   for (const pattern of ENTRYPOINT_PATTERNS) {
-    const match = files.find((file) => file === pattern.suffix || file.endsWith(`/${pattern.suffix}`));
+    const match = files.find(
+      (file) => file === pattern.suffix || file.endsWith(`/${pattern.suffix}`),
+    );
     if (match) {
       entrypoints.push({
         path: match,
@@ -573,9 +631,7 @@ export function findDockerAndInfraFiles(files: string[]): string[] {
 }
 
 export function findCiWorkflows(files: string[]): string[] {
-  return files
-    .filter((file) => file.startsWith(".github/workflows/"))
-    .slice(0, 20);
+  return files.filter((file) => file.startsWith(".github/workflows/")).slice(0, 20);
 }
 
 export function detectPackageManager(files: string[]): string | null {

@@ -4,10 +4,7 @@ export interface SearchMatch {
   snippet: string;
 }
 
-export function summarizeMatches(
-  question: string,
-  matches: SearchMatch[],
-): string {
+export function summarizeMatches(question: string, matches: SearchMatch[]): string {
   if (matches.length === 0) {
     return `I could not find direct lexical evidence for "${question}" in the indexed repository.`;
   }

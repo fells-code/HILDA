@@ -1,9 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import {
-  listVisibleRepositoryFiles,
-  listVisibleTopLevelEntries,
-} from "@hilda/shared";
+import { listVisibleRepositoryFiles, listVisibleTopLevelEntries } from "@hilda/shared";
 
 export async function listAllFiles(repoPath: string): Promise<string[]> {
   return listVisibleRepositoryFiles(repoPath);
@@ -50,24 +47,14 @@ export async function summarizeStructure(repoPath: string) {
   const topLevelEntries = listVisibleTopLevelEntries(files);
 
   const packageLikeDirs = topLevelEntries.filter((entry) =>
-    [
-      "apps",
-      "packages",
-      "services",
-      "src",
-      "docs",
-      "scripts",
-      "test",
-      "tests",
-    ].includes(entry.toLowerCase()),
+    ["apps", "packages", "services", "src", "docs", "scripts", "test", "tests"].includes(
+      entry.toLowerCase(),
+    ),
   );
 
-  const markdownFiles = files.filter((file) =>
-    file.toLowerCase().endsWith(".md"),
-  );
+  const markdownFiles = files.filter((file) => file.toLowerCase().endsWith(".md"));
   const tsFiles = files.filter(
-    (file) =>
-      file.toLowerCase().endsWith(".ts") || file.toLowerCase().endsWith(".tsx"),
+    (file) => file.toLowerCase().endsWith(".ts") || file.toLowerCase().endsWith(".tsx"),
   );
 
   return {

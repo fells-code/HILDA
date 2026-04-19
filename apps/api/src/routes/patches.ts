@@ -1,12 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import {
-  ApprovalRequest,
-  Repository,
-  Task,
-  TaskTrace,
-  Workspace,
-} from "@hilda/db";
+import { ApprovalRequest, Repository, Task, TaskTrace, Workspace } from "@hilda/db";
 import { runPatchGraph } from "@hilda/agents";
 import { requireAuthUser } from "../middleware/devAuth";
 
@@ -128,81 +122,76 @@ router.post("/patches", async (req, res, next) => {
   }
 });
 
-router.post(
-  "/patch-approval-requests/:approvalRequestId",
-  async (req, res, next) => {
-    try {
-      const authUser = requireAuthUser(req);
-      const parsed = updatePatchApprovalSchema.safeParse(req.body);
+router.post("/patch-approval-requests/:approvalRequestId", async (req, res, next) => {
+  try {
+    const authUser = requireAuthUser(req);
+    const parsed = updatePatchApprovalSchema.safeParse(req.body);
 
-      if (!parsed.success) {
-        res.status(400).json({
-          ok: false,
-          error: "Invalid approval payload",
-          details: parsed.error.flatten(),
-        });
-        return;
-      }
-
-      const approval = await ApprovalRequest.findByPk(
-        req.params.approvalRequestId,
-      );
-
-      if (!approval || approval.approvalType !== "patch") {
-        res.status(404).json({
-          ok: false,
-          error: "Patch approval request not found",
-        });
-        return;
-      }
-
-      const task = await Task.findByPk(approval.taskId);
-
-      if (!task) {
-        res.status(404).json({ ok: false, error: "Task not found" });
-        return;
-      }
-
-      const workspace = await Workspace.findOne({
-        where: {
-          id: task.workspaceId,
-          ownerId: authUser.id,
-        },
+    if (!parsed.success) {
+      res.status(400).json({
+        ok: false,
+        error: "Invalid approval payload",
+        details: parsed.error.flatten(),
       });
-
-      if (!workspace) {
-        res.status(404).json({
-          ok: false,
-          error: "Patch approval request not found",
-        });
-        return;
-      }
-
-      await approval.update({
-        status: parsed.data.status,
-      });
-
-      await TaskTrace.create({
-        taskId: task.id,
-        eventType: "patch_approval_updated",
-        eventDataJson: {
-          approvalRequestId: approval.id,
-          status: parsed.data.status,
-        },
-      });
-
-      await task.update({
-        status: parsed.data.status === "approved" ? "completed" : "failed",
-      });
-
-      res.json({
-        ok: true,
-        approval,
-      });
-    } catch (error) {
-      next(error);
+      return;
     }
-  },
-);
+
+    const approval = await ApprovalRequest.findByPk(req.params.approvalRequestId);
+
+    if (!approval || approval.approvalType !== "patch") {
+      res.status(404).json({
+        ok: false,
+        error: "Patch approval request not found",
+      });
+      return;
+    }
+
+    const task = await Task.findByPk(approval.taskId);
+
+    if (!task) {
+      res.status(404).json({ ok: false, error: "Task not found" });
+      return;
+    }
+
+    const workspace = await Workspace.findOne({
+      where: {
+        id: task.workspaceId,
+        ownerId: authUser.id,
+      },
+    });
+
+    if (!workspace) {
+      res.status(404).json({
+        ok: false,
+        error: "Patch approval request not found",
+      });
+      return;
+    }
+
+    await approval.update({
+      status: parsed.data.status,
+    });
+
+    await TaskTrace.create({
+      taskId: task.id,
+      eventType: "patch_approval_updated",
+      eventDataJson: {
+        approvalRequestId: approval.id,
+        status: parsed.data.status,
+      },
+    });
+
+    await task.update({
+      status: parsed.data.status === "approved" ? "completed" : "failed",
+    });
+
+    res.json({
+      ok: true,
+      approval,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 
 export default router;

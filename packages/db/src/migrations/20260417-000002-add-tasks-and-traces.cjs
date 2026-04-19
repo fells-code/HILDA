@@ -111,11 +111,7 @@ module.exports = {
   async down(queryInterface) {
     await queryInterface.dropTable("task_traces");
     await queryInterface.dropTable("tasks");
-    await queryInterface.sequelize.query(
-      'DROP TYPE IF EXISTS "enum_tasks_task_type";',
-    );
-    await queryInterface.sequelize.query(
-      'DROP TYPE IF EXISTS "enum_tasks_status";',
-    );
+    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_tasks_task_type";');
+    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_tasks_status";');
   },
 };

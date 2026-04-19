@@ -1,8 +1,5 @@
 import path from "node:path";
-import {
-  listVisibleRepositoryFiles,
-  listVisibleTopLevelEntries,
-} from "@hilda/shared";
+import { listVisibleRepositoryFiles, listVisibleTopLevelEntries } from "@hilda/shared";
 
 const DOC_EXTENSIONS = new Set([".md", ".mdx", ".txt"]);
 const CODE_EXTENSIONS = new Set([
@@ -26,17 +23,11 @@ export interface RepositoryScanSummary {
   sampleCode: string[];
 }
 
-export async function scanRepository(
-  root: string,
-): Promise<RepositoryScanSummary> {
+export async function scanRepository(root: string): Promise<RepositoryScanSummary> {
   const files = await listVisibleRepositoryFiles(root);
 
-  const codeFiles = files.filter((file) =>
-    CODE_EXTENSIONS.has(path.extname(file)),
-  );
-  const docFiles = files.filter((file) =>
-    DOC_EXTENSIONS.has(path.extname(file)),
-  );
+  const codeFiles = files.filter((file) => CODE_EXTENSIONS.has(path.extname(file)));
+  const docFiles = files.filter((file) => DOC_EXTENSIONS.has(path.extname(file)));
 
   return {
     totalFiles: files.length,
