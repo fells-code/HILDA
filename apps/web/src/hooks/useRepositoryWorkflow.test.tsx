@@ -14,10 +14,7 @@ import {
 } from "../lib/api";
 
 vi.mock("../lib/api", async () => {
-  const actual = await vi.importActual<typeof import("../lib/api")>("../lib/api");
-
   return {
-    ...actual,
     askRepository: vi.fn(),
     createPatch: vi.fn(),
     createValidation: vi.fn(),
