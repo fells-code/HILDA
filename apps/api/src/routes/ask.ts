@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { Repository, Task, TaskTrace, Workspace } from "@hilda/db";
-import { runAnalysisGraph, runPlanGraph, runQuestionGraph } from "@hilda/agents";
+import { runExplorationGraph, runPlanGraph, runQuestionGraph } from "@hilda/agents";
 import { routePrompt } from "../lib/intentRouter";
 import type { AuthenticatedRequest } from "../middleware/devAuth";
 
@@ -87,13 +87,13 @@ router.post("/ask", async (req, res, next) => {
         },
       });
 
-      const result = await runAnalysisGraph({
+      const result = await runExplorationGraph({
         taskId: task.id,
         workspaceId: workspace.id,
         userId: authUser.id,
         repositoryId: repository.id,
         prompt: parsed.data.prompt,
-        intent: routed.analysisIntent,
+        intentHint: routed.analysisIntent,
       });
 
       res.json({

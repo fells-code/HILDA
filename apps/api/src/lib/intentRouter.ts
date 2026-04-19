@@ -1,9 +1,13 @@
 export type RoutedIntent = "repo_analysis" | "question" | "plan";
 
 export type RepoAnalysisIntent =
-  | "count_tests"
-  | "list_commands"
-  | "summarize_structure";
+  | "codebase_summary"
+  | "purpose_summary"
+  | "architecture_summary"
+  | "commands_summary"
+  | "test_count"
+  | "framework_detection"
+  | "entrypoints_summary";
 
 export type QuestionIntent =
   | "general"
@@ -29,18 +33,43 @@ export function routePrompt(prompt: string): {
   ) {
     return {
       route: "repo_analysis",
-      analysisIntent: "count_tests",
+      analysisIntent: "test_count",
     };
   }
 
   if (
     lower.includes("what commands can i run") ||
     lower.includes("available commands") ||
-    lower.includes("scripts")
+    lower.includes("scripts") ||
+    lower.includes("how do i run this")
   ) {
     return {
       route: "repo_analysis",
-      analysisIntent: "list_commands",
+      analysisIntent: "commands_summary",
+    };
+  }
+
+  if (
+    lower.includes("what framework") ||
+    lower.includes("what frameworks") ||
+    lower.includes("framework is this using") ||
+    lower.includes("which framework")
+  ) {
+    return {
+      route: "repo_analysis",
+      analysisIntent: "framework_detection",
+    };
+  }
+
+  if (
+    lower.includes("where are the entrypoints") ||
+    lower.includes("where are the entry points") ||
+    lower.includes("entrypoint") ||
+    lower.includes("entry point")
+  ) {
+    return {
+      route: "repo_analysis",
+      analysisIntent: "entrypoints_summary",
     };
   }
 
@@ -49,15 +78,35 @@ export function routePrompt(prompt: string): {
     lower.includes("repo overview") ||
     lower.includes("overview of this repo") ||
     lower.includes("overview of this repository") ||
+    lower.includes("what is this repo") ||
+    lower.includes("what is this repository") ||
     lower.includes("what is this code base") ||
     lower.includes("what is this codebase") ||
+    lower.includes("understand repo")
+  ) {
+    return {
+      route: "repo_analysis",
+      analysisIntent: "codebase_summary",
+    };
+  }
+
+  if (
     lower.includes("how is it architected") ||
     lower.includes("architecture") ||
+    lower.includes("how is it structured")
+  ) {
+    return {
+      route: "repo_analysis",
+      analysisIntent: "architecture_summary",
+    };
+  }
+
+  if (
     lower.includes("what does it do")
   ) {
     return {
       route: "repo_analysis",
-      analysisIntent: "summarize_structure",
+      analysisIntent: "purpose_summary",
     };
   }
 

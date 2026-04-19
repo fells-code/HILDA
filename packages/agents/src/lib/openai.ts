@@ -20,6 +20,10 @@ export function getPlannerModel(): string {
   return process.env.HILDA_PLANNER_MODEL || "gpt-4.1-mini";
 }
 
+export function getExplorationModel(): string {
+  return process.env.HILDA_EXPLORATION_MODEL || getPlannerModel();
+}
+
 export function getPatchModel(): string {
   return process.env.HILDA_PATCH_MODEL || getPlannerModel();
 }

@@ -1434,14 +1434,23 @@ function getOverviewSection(
 
 function formatOverviewChatBody(result: AnalysisResult): string {
   const purpose = getOverviewSection(result, "Purpose")?.items[0];
-  const architecture = getOverviewSection(result, "Architecture")?.items ?? [];
-  const tooling = getOverviewSection(result, "Frameworks and tooling")?.items ?? [];
+  const architecture = (getOverviewSection(result, "Architecture")?.items ?? []).filter(
+    (item) => !/:\s*none detected$/i.test(item),
+  );
+  const tooling = (getOverviewSection(result, "Frameworks and tooling")?.items ?? []).filter(
+    (item) => !/^Detected:\s*$/i.test(item),
+  );
   const runtime = getOverviewSection(result, "Runtime and operations")?.items ?? [];
   const testing = getOverviewSection(result, "Testing and coverage")?.items ?? [];
   const issues = getOverviewSection(result, "Observed gaps and issues")?.items ?? [];
+  const summary =
+    result.answer
+      .split(/(?<=[.?!])\s+/)
+      .map((sentence) => sentence.trim())
+      .filter(Boolean)[0] ?? result.answer;
 
   const paragraphs = [
-    purpose ? `What It Is: ${purpose}` : null,
+    `Summary: ${purpose ?? summary}`,
     architecture.length > 0 ? `Architecture: ${architecture.slice(0, 2).join(" ")}` : null,
     tooling.length > 0 ? `Tooling: ${tooling.slice(0, 3).join(" ")}` : null,
     runtime.length > 0 ? `Runtime: ${runtime.slice(0, 3).join(" ")}` : null,
