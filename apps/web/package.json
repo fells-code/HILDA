@@ -8,7 +8,8 @@
     "dev": "vite",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "echo web-ok",
+    "test": "NODE_OPTIONS=--max-old-space-size=8192 vitest run --maxWorkers=1",
+    "test:watch": "NODE_OPTIONS=--max-old-space-size=8192 vitest --maxWorkers=1",
     "clean": "rm -rf dist"
   },
   "dependencies": {
@@ -17,10 +18,13 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@testing-library/react": "^16.3.2",
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
     "@vitejs/plugin-react": "^4.3.2",
+    "jsdom": "^29.0.2",
     "typescript": "^5.6.3",
-    "vite": "^6.0.1"
+    "vite": "^6.0.1",
+    "vitest": "^4.1.4"
   }
 }
