@@ -42,10 +42,10 @@ export const contentStyle: CSSProperties = {
 export const repoHeaderCardStyle: CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
-  gap: 20,
-  alignItems: "flex-start",
-  borderRadius: 24,
-  padding: 24,
+  gap: 16,
+  alignItems: "center",
+  borderRadius: 20,
+  padding: "16px 18px",
   background: "#171a21",
   color: "#f3f4f6",
   border: "1px solid #262b36",
@@ -321,16 +321,17 @@ export const errorStyle: CSSProperties = {
 
 export const repoTitleRowStyle: CSSProperties = {
   display: "flex",
-  gap: 12,
+  gap: 10,
   alignItems: "center",
   flexWrap: "wrap",
-  marginTop: 8,
+  marginTop: 4,
 };
 
 export const repoMetaRowStyle: CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
-  gap: 10,
+  gap: 8,
+  alignItems: "center",
 };
 
 export const heroMetaPillStyle: CSSProperties = {
@@ -341,21 +342,22 @@ export const heroMetaPillStyle: CSSProperties = {
   border: "1px solid #2a3340",
   background: "#11161d",
   color: "#c8d1dd",
-  padding: "8px 12px",
-  fontSize: 13,
+  padding: "5px 9px",
+  fontSize: 12,
 };
 
 export const repoDescriptionStyle: CSSProperties = {
   margin: 0,
   color: "#cbd5e1",
-  lineHeight: 1.7,
-  maxWidth: 960,
+  lineHeight: 1.45,
+  maxWidth: 920,
+  fontSize: 14,
 };
 
 export const repoChipRowStyle: CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
-  gap: 8,
+  gap: 6,
 };
 
 export const headerChipStyle: CSSProperties = {
@@ -365,16 +367,45 @@ export const headerChipStyle: CSSProperties = {
   background: "#10151c",
   border: "1px solid #29313d",
   color: "#d6dbe3",
-  padding: "7px 11px",
+  padding: "5px 9px",
   fontSize: 12,
   fontWeight: 600,
 };
 
 export const repoHeaderActionsStyle: CSSProperties = {
-  display: "grid",
-  gap: 10,
+  display: "flex",
+  alignItems: "center",
   justifyItems: "end",
-  minWidth: 180,
+  minWidth: 0,
+};
+
+export const repoHeaderBodyStyle: CSSProperties = {
+  display: "grid",
+  gap: 8,
+  minWidth: 0,
+  flex: 1,
+};
+
+export const repoHeaderTopRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: 16,
+};
+
+export const repoHeaderTopMetaStyle: CSSProperties = {
+  display: "grid",
+  gap: 6,
+  minWidth: 0,
+};
+
+export const repoHeaderSublineStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 8,
+  alignItems: "center",
+  color: "#8b98aa",
+  fontSize: 12,
 };
 
 export const workspaceCanvasStyle: CSSProperties = {

@@ -1,34 +1,19 @@
 import React from "react";
 import { PlanSection } from "./PlanSection";
-import { StatusBadge } from "./StatusBadge";
-import type {
-  ApprovalRequest,
-  GeneratedPlan,
-  PatchArtifact,
-  QuestionMatch,
-  TaskTrace,
-} from "../lib/api";
+import type { GeneratedPlan, QuestionMatch, TaskTrace } from "../lib/api";
 import {
-  actionRowStyle,
-  approvalCardStyle,
-  artifactPreStyle,
-  buttonStyle,
-  dangerButtonStyle,
   detailsContentStyle,
   detailsStyle,
   detailsSummaryStyle,
-  inputStyle,
   mutedTextStyle,
   reasonListStyle,
   reasonPillStyle,
   resultCardStyle,
   resultHeaderStyle,
-  secondaryButtonStyle,
   snippetStyle,
   summaryPanelStyle,
   traceCardStyle,
   tracePreStyle,
-  validationComposerStyle,
   workflowDockStyle,
 } from "../styles";
 
@@ -77,40 +62,6 @@ function TraceList({ title, traces }: { title: string; traces: TaskTrace[] }) {
   );
 }
 
-function ApprovalList({ approvals }: { approvals: ApprovalRequest[] }) {
-  return (
-    <div style={{ display: "grid", gap: 8 }}>
-      <div style={mutedTextStyle}>Approval history</div>
-      {approvals.map((approval) => (
-        <article key={approval.id} style={approvalCardStyle}>
-          <div>{approval.summary}</div>
-          <StatusBadge status={approval.status} />
-        </article>
-      ))}
-    </div>
-  );
-}
-
-function ArtifactList({
-  title,
-  artifacts,
-}: {
-  title: string;
-  artifacts: PatchArtifact[];
-}) {
-  return (
-    <div style={{ display: "grid", gap: 12 }}>
-      <div style={mutedTextStyle}>{title}</div>
-      {artifacts.map((artifact) => (
-        <article key={artifact.id} style={resultCardStyle}>
-          <div style={{ fontWeight: 700, marginBottom: 8 }}>{artifact.title}</div>
-          <pre style={artifactPreStyle}>{artifact.content}</pre>
-        </article>
-      ))}
-    </div>
-  );
-}
-
 export function WorkflowPanel({
   activeWorkflowPanel,
   questionAnswer,
@@ -118,27 +69,9 @@ export function WorkflowPanel({
   latestTaskId,
   taskTraces,
   latestPlan,
-  latestPlanApprovals,
   latestPlanMatches,
   latestPlanTaskId,
   latestPlanTraces,
-  latestPatchArtifacts,
-  latestPatchApprovals,
-  latestPatchTraces,
-  latestValidationArtifacts,
-  latestValidationTaskId,
-  latestValidationTraces,
-  onApprovePlan,
-  onRejectPlan,
-  onCreatePatch,
-  onApprovePatch,
-  onRejectPatch,
-  onRunValidation,
-  creatingPatch,
-  runningValidation,
-  latestPatchTaskId,
-  validationTestCommand,
-  setValidationTestCommand,
 }: {
   activeWorkflowPanel: "idle" | "question" | "plan" | "patch" | "validation";
   questionAnswer: string;
@@ -146,44 +79,13 @@ export function WorkflowPanel({
   latestTaskId: string;
   taskTraces: TaskTrace[];
   latestPlan: GeneratedPlan | null;
-  latestPlanApprovals: ApprovalRequest[];
   latestPlanMatches: QuestionMatch[];
   latestPlanTaskId: string;
   latestPlanTraces: TaskTrace[];
-  latestPatchArtifacts: PatchArtifact[];
-  latestPatchApprovals: ApprovalRequest[];
-  latestPatchTraces: TaskTrace[];
-  latestValidationArtifacts: PatchArtifact[];
-  latestValidationTaskId: string;
-  latestValidationTraces: TaskTrace[];
-  onApprovePlan: () => void;
-  onRejectPlan: () => void;
-  onCreatePatch: () => void;
-  onApprovePatch: () => void;
-  onRejectPatch: () => void;
-  onRunValidation: () => void;
-  creatingPatch: boolean;
-  runningValidation: boolean;
-  latestPatchTaskId: string;
-  validationTestCommand: string;
-  setValidationTestCommand: React.Dispatch<React.SetStateAction<string>>;
 }) {
-  if (
-    activeWorkflowPanel === "idle" &&
-    !questionAnswer &&
-    !latestPlan &&
-    latestPatchArtifacts.length === 0 &&
-    latestValidationArtifacts.length === 0
-  ) {
+  if (activeWorkflowPanel === "idle" && !questionAnswer && !latestPlan) {
     return null;
   }
-
-  const planApproved = latestPlanApprovals.some(
-    (approval) => approval.status === "approved",
-  );
-  const patchApproved = latestPatchApprovals.some(
-    (approval) => approval.status === "approved",
-  );
 
   return (
     <div style={workflowDockStyle}>
@@ -227,7 +129,7 @@ export function WorkflowPanel({
 
       {latestPlan ? (
         <details style={detailsStyle} open={activeWorkflowPanel === "plan"}>
-          <summary style={detailsSummaryStyle}>Plan review</summary>
+          <summary style={detailsSummaryStyle}>Suggested implementation context</summary>
           <div style={detailsContentStyle}>
             <div style={{ display: "grid", gap: 12 }}>
               <div style={summaryPanelStyle}>
@@ -235,7 +137,8 @@ export function WorkflowPanel({
                   {latestPlan.summary}
                 </div>
                 <div style={mutedTextStyle}>
-                  Task {latestPlanTaskId || "not available yet"}
+                  HILDA interpreted this as an implementation-oriented question. The
+                  outline is shown here for context only.
                 </div>
               </div>
 
@@ -275,37 +178,12 @@ export function WorkflowPanel({
                 />
               ) : null}
 
-              <div style={actionRowStyle}>
-                <button style={buttonStyle} onClick={onApprovePlan}>
-                  Approve plan
-                </button>
-                <button style={dangerButtonStyle} onClick={onRejectPlan}>
-                  Reject plan
-                </button>
-                <button
-                  style={secondaryButtonStyle}
-                  onClick={onCreatePatch}
-                  disabled={!planApproved || creatingPatch}
-                >
-                  {creatingPatch ? "Generating diff..." : "Create diff"}
-                </button>
-              </div>
-
-              {latestPlanApprovals.length > 0 ? (
-                <details style={detailsStyle}>
-                  <summary style={detailsSummaryStyle}>Approval history</summary>
-                  <div style={detailsContentStyle}>
-                    <ApprovalList approvals={latestPlanApprovals} />
-                  </div>
-                </details>
-              ) : null}
-
               {latestPlanMatches.length > 0 ? (
                 <details style={detailsStyle}>
-                  <summary style={detailsSummaryStyle}>Plan evidence</summary>
+                  <summary style={detailsSummaryStyle}>Supporting evidence</summary>
                   <div style={detailsContentStyle}>
                     <MatchList
-                      title="Evidence used for planning"
+                      title="Evidence used to build this outline"
                       matches={latestPlanMatches}
                     />
                   </div>
@@ -314,102 +192,11 @@ export function WorkflowPanel({
 
               {latestPlanTraces.length > 0 ? (
                 <details style={detailsStyle}>
-                  <summary style={detailsSummaryStyle}>Plan trace</summary>
+                  <summary style={detailsSummaryStyle}>
+                    Trace {latestPlanTaskId ? `• ${latestPlanTaskId}` : ""}
+                  </summary>
                   <div style={detailsContentStyle}>
                     <TraceList title="Task trace" traces={latestPlanTraces} />
-                  </div>
-                </details>
-              ) : null}
-            </div>
-          </div>
-        </details>
-      ) : null}
-
-      {latestPatchArtifacts.length > 0 ? (
-        <details style={detailsStyle} open={activeWorkflowPanel === "patch"}>
-          <summary style={detailsSummaryStyle}>Diff review</summary>
-          <div style={detailsContentStyle}>
-            <div style={{ display: "grid", gap: 12 }}>
-              <div style={actionRowStyle}>
-                <button style={buttonStyle} onClick={onApprovePatch}>
-                  Approve diff
-                </button>
-                <button style={dangerButtonStyle} onClick={onRejectPatch}>
-                  Reject diff
-                </button>
-                <button
-                  style={secondaryButtonStyle}
-                  onClick={onRunValidation}
-                  disabled={!patchApproved || runningValidation}
-                >
-                  {runningValidation ? "Running validation..." : "Run validation"}
-                </button>
-              </div>
-
-              <ArtifactList title="Patch artifact" artifacts={latestPatchArtifacts} />
-
-              {latestPatchApprovals.length > 0 ? (
-                <details style={detailsStyle}>
-                  <summary style={detailsSummaryStyle}>Approval history</summary>
-                  <div style={detailsContentStyle}>
-                    <ApprovalList approvals={latestPatchApprovals} />
-                  </div>
-                </details>
-              ) : null}
-
-              {latestPatchTraces.length > 0 ? (
-                <details style={detailsStyle}>
-                  <summary style={detailsSummaryStyle}>
-                    Patch trace {latestPatchTaskId ? `• ${latestPatchTaskId}` : ""}
-                  </summary>
-                  <div style={detailsContentStyle}>
-                    <TraceList title="Task trace" traces={latestPatchTraces} />
-                  </div>
-                </details>
-              ) : null}
-            </div>
-          </div>
-        </details>
-      ) : null}
-
-      {latestPatchTaskId ? (
-        <details style={detailsStyle} open={activeWorkflowPanel === "validation"}>
-          <summary style={detailsSummaryStyle}>Validation</summary>
-          <div style={detailsContentStyle}>
-            <div style={{ display: "grid", gap: 12 }}>
-              <div style={validationComposerStyle}>
-                <input
-                  value={validationTestCommand}
-                  onChange={(event) => setValidationTestCommand(event.target.value)}
-                  placeholder="Optional test command, for example pnpm test -- --runInBand"
-                  style={inputStyle}
-                />
-                <button
-                  style={secondaryButtonStyle}
-                  onClick={onRunValidation}
-                  disabled={runningValidation}
-                >
-                  {runningValidation ? "Running..." : "Run"}
-                </button>
-              </div>
-
-              {latestValidationArtifacts.length > 0 ? (
-                <ArtifactList
-                  title="Validation report"
-                  artifacts={latestValidationArtifacts}
-                />
-              ) : (
-                <div style={mutedTextStyle}>No validation run yet for this diff.</div>
-              )}
-
-              {latestValidationTraces.length > 0 ? (
-                <details style={detailsStyle}>
-                  <summary style={detailsSummaryStyle}>
-                    Validation trace{" "}
-                    {latestValidationTaskId ? `• ${latestValidationTaskId}` : ""}
-                  </summary>
-                  <div style={detailsContentStyle}>
-                    <TraceList title="Task trace" traces={latestValidationTraces} />
                   </div>
                 </details>
               ) : null}

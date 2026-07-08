@@ -280,6 +280,12 @@ function buildFallbackAnswer(input: GenerateExplorationAnswerInput): RepositoryO
 
   const sections = [
     {
+      title: "Languages",
+      items: input.repoMetadata?.topLanguages.length
+        ? input.repoMetadata.topLanguages.map((entry) => `${entry.label}: ${entry.value}`)
+        : ["No dominant languages detected from visible file extensions."],
+    },
+    {
       title: "What it is",
       items: [purpose],
     },

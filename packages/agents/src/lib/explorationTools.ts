@@ -70,6 +70,31 @@ const FRAMEWORK_DETECTIONS = [
 ];
 
 const README_FILES = ["README.md", "README.mdx", "README.txt"];
+const LANGUAGE_BY_EXTENSION: Record<string, string> = {
+  ".ts": "TypeScript",
+  ".tsx": "TypeScript",
+  ".js": "JavaScript",
+  ".jsx": "JavaScript",
+  ".mjs": "JavaScript",
+  ".cjs": "JavaScript",
+  ".py": "Python",
+  ".rb": "Ruby",
+  ".go": "Go",
+  ".rs": "Rust",
+  ".java": "Java",
+  ".kt": "Kotlin",
+  ".swift": "Swift",
+  ".php": "PHP",
+  ".cs": "C#",
+  ".cpp": "C++",
+  ".c": "C",
+  ".h": "C/C++",
+  ".html": "HTML",
+  ".css": "CSS",
+  ".scss": "SCSS",
+  ".sql": "SQL",
+  ".sh": "Shell",
+};
 const ENTRYPOINT_PATTERNS = [
   { suffix: "src/main.ts", reason: "conventional TypeScript entrypoint" },
   { suffix: "src/index.ts", reason: "conventional TypeScript entrypoint" },
@@ -658,6 +683,28 @@ export function detectPackageManager(files: string[]): string | null {
   return null;
 }
 
+function summarizeTopLanguages(files: string[]): Array<{ label: string; value: string }> {
+  const counts = new Map<string, number>();
+
+  for (const file of files) {
+    const language = LANGUAGE_BY_EXTENSION[path.extname(file).toLowerCase()];
+
+    if (!language) {
+      continue;
+    }
+
+    counts.set(language, (counts.get(language) ?? 0) + 1);
+  }
+
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([label, count]) => ({
+      label,
+      value: `${count} file${count === 1 ? "" : "s"}`,
+    }));
+}
+
 export async function gatherRepoMetadata(
   repoPath: string,
 ): Promise<RepoMetadataEvidence & { repoFiles: string[] }> {
@@ -665,11 +712,13 @@ export async function gatherRepoMetadata(
   const rootPackageJson = await readRootPackageJson(repoPath, repoFiles);
   const workspaceConfig = findWorkspaceConfig(repoFiles, rootPackageJson);
   const topLevelEntries = listTopLevelEntries(repoFiles);
+  const topLanguages = summarizeTopLanguages(repoFiles);
 
   return {
     repoFiles,
     topLevelEntries,
     visibleFileCount: repoFiles.length,
+    topLanguages,
     manifestKind: repoFiles.includes("package.json")
       ? "package_json"
       : repoFiles.includes("Cargo.toml")

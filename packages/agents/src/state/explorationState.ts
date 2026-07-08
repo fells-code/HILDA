@@ -33,6 +33,7 @@ export interface WorkspaceConfigEvidence {
 export interface RepoMetadataEvidence {
   topLevelEntries: string[];
   visibleFileCount: number;
+  topLanguages: Array<{ label: string; value: string }>;
   manifestKind: "package_json" | "cargo_toml" | "pyproject_toml" | "unknown";
   rootPackageJson: RootPackageJsonEvidence | null;
   workspaceConfig: WorkspaceConfigEvidence;

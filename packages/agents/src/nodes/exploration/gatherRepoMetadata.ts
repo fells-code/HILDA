@@ -16,6 +16,7 @@ export async function gatherRepoMetadataNode(
     eventType: "graph_exploration_repo_metadata_gathered",
     eventDataJson: {
       visibleFileCount: metadata.visibleFileCount,
+      topLanguages: metadata.topLanguages,
       topLevelEntries: metadata.topLevelEntries,
       manifestKind: metadata.manifestKind,
       packageManager: metadata.workspaceConfig.packageManager,
@@ -28,6 +29,7 @@ export async function gatherRepoMetadataNode(
     repoMetadata: {
       topLevelEntries: metadata.topLevelEntries,
       visibleFileCount: metadata.visibleFileCount,
+      topLanguages: metadata.topLanguages,
       manifestKind: metadata.manifestKind,
       rootPackageJson: metadata.rootPackageJson,
       workspaceConfig: metadata.workspaceConfig,

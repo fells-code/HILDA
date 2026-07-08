@@ -9,20 +9,20 @@ import type {
 import {
   extractLanguageNames,
   extractRepositoryDescription,
-  extractToolingNames,
   formatIssueCount,
   getOverviewMetric,
 } from "../lib/overview";
 import {
-  dangerButtonStyle,
   eyebrowStyle,
   headerChipStyle,
-  heroMetaPillStyle,
   repoChipRowStyle,
   repoDescriptionStyle,
   repoHeaderActionsStyle,
+  repoHeaderBodyStyle,
   repoHeaderCardStyle,
-  repoMetaRowStyle,
+  repoHeaderSublineStyle,
+  repoHeaderTopMetaStyle,
+  repoHeaderTopRowStyle,
   repoTitleRowStyle,
   secondaryButtonStyle,
 } from "../styles";
@@ -35,8 +35,6 @@ export function RepositoryHeader({
   metadata,
   isOverviewLoading,
   isMetadataLoading,
-  isDeleting,
-  onDelete,
   onRefresh,
 }: {
   workspaceName: string;
@@ -46,27 +44,45 @@ export function RepositoryHeader({
   metadata: RepositoryMetadata | null;
   isOverviewLoading: boolean;
   isMetadataLoading: boolean;
-  isDeleting: boolean;
-  onDelete: () => void;
   onRefresh: () => void;
 }) {
+  const languages = extractLanguageNames(overview).slice(0, 3);
+  const fileCount = getOverviewMetric(overview, "Files scanned")?.value ?? null;
+  const issueCount = formatIssueCount(repository, metadata, isMetadataLoading);
+
   return (
     <section style={repoHeaderCardStyle}>
-      <div style={{ display: "grid", gap: 14, minWidth: 0 }}>
-        <div>
-          <div style={eyebrowStyle}>{workspaceName} / active repository</div>
-          <div style={repoTitleRowStyle}>
-            <h2 style={{ margin: 0, fontSize: 30 }}>{repository.name}</h2>
-            <StatusBadge status={repository.status} />
+      <div style={repoHeaderBodyStyle}>
+        <div style={repoHeaderTopRowStyle}>
+          <div style={repoHeaderTopMetaStyle}>
+            <div style={eyebrowStyle}>{workspaceName} / active repository</div>
+            <div style={repoTitleRowStyle}>
+              <h2 style={{ margin: 0, fontSize: 24, lineHeight: 1.1 }}>
+                {repository.name}
+              </h2>
+              <StatusBadge status={repository.status} />
+            </div>
+          </div>
+
+          <div style={repoHeaderActionsStyle}>
+            <button
+              onClick={onRefresh}
+              disabled={repository.status !== "indexed"}
+              style={secondaryButtonStyle}
+            >
+              Refresh understanding
+            </button>
           </div>
         </div>
 
-        <div style={repoMetaRowStyle}>
-          <span style={heroMetaPillStyle}>
+        <div style={repoHeaderSublineStyle}>
+          <span>
             {repository.provider === "github" ? "GitHub repo" : "Local directory"}
           </span>
-          <span style={heroMetaPillStyle}>Branch {repository.defaultBranch}</span>
-          <span style={heroMetaPillStyle}>
+          <span>•</span>
+          <span>Branch {repository.defaultBranch}</span>
+          <span>•</span>
+          <span>
             Last indexed{" "}
             {repositoryIndex?.indexedAt
               ? new Date(repositoryIndex.indexedAt).toLocaleString()
@@ -74,46 +90,29 @@ export function RepositoryHeader({
           </span>
         </div>
 
-        <p style={repoDescriptionStyle}>
+        <p
+          style={{
+            ...repoDescriptionStyle,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+          title={extractRepositoryDescription(overview, isOverviewLoading)}
+        >
           {extractRepositoryDescription(overview, isOverviewLoading)}
         </p>
 
         <div style={repoChipRowStyle}>
-          {extractLanguageNames(overview).map((language) => (
+          {languages.map((language) => (
             <span key={`language-${language}`} style={headerChipStyle}>
               {language}
             </span>
           ))}
 
-          {getOverviewMetric(overview, "Files scanned") ? (
-            <span style={headerChipStyle}>
-              {getOverviewMetric(overview, "Files scanned")?.value} files
-            </span>
-          ) : null}
+          {fileCount ? <span style={headerChipStyle}>{fileCount} files</span> : null}
 
-          {extractToolingNames(overview).map((tool) => (
-            <span key={`tool-${tool}`} style={headerChipStyle}>
-              {tool}
-            </span>
-          ))}
-
-          <span style={headerChipStyle}>
-            Issues {formatIssueCount(repository, metadata, isMetadataLoading)}
-          </span>
+          <span style={headerChipStyle}>Issues {issueCount}</span>
         </div>
-      </div>
-
-      <div style={repoHeaderActionsStyle}>
-        <button onClick={onDelete} disabled={isDeleting} style={dangerButtonStyle}>
-          {isDeleting ? "Deleting..." : "Delete repository"}
-        </button>
-        <button
-          onClick={onRefresh}
-          disabled={repository.status !== "indexed"}
-          style={secondaryButtonStyle}
-        >
-          Refresh repo context
-        </button>
       </div>
     </section>
   );

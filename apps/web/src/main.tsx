@@ -72,7 +72,7 @@ function App() {
             <AppEmptyState
               title="Select a repository"
               subtitle={`Choose the repo you want to work on inside ${selectedWorkspace.name}.`}
-              body="Once a repository is selected, HILDA will pre-load its overview and make chat, planning, and validation available in one place."
+              body="Once a repository is selected, HILDA will pre-load its overview and let you ask grounded questions about what the code does, how it is structured, and where key logic lives."
             />
           ) : (
             <>
@@ -87,10 +87,6 @@ function App() {
                 }
                 isMetadataLoading={
                   workspaceData.loadingRepositoryMetadataId === selectedRepository.id
-                }
-                isDeleting={workspaceData.deletingRepositoryId === selectedRepository.id}
-                onDelete={() =>
-                  void workspaceData.handleDeleteRepository(selectedRepository)
                 }
                 onRefresh={workspaceData.refreshSelectedRepositoryContext}
               />
@@ -115,27 +111,9 @@ function App() {
                     latestTaskId={workflow.latestTaskId}
                     taskTraces={workflow.taskTraces}
                     latestPlan={workflow.latestPlan}
-                    latestPlanApprovals={workflow.latestPlanApprovals}
                     latestPlanMatches={workflow.latestPlanMatches}
                     latestPlanTaskId={workflow.latestPlanTaskId}
                     latestPlanTraces={workflow.latestPlanTraces}
-                    latestPatchArtifacts={workflow.latestPatchArtifacts}
-                    latestPatchApprovals={workflow.latestPatchApprovals}
-                    latestPatchTraces={workflow.latestPatchTraces}
-                    latestValidationArtifacts={workflow.latestValidationArtifacts}
-                    latestValidationTaskId={workflow.latestValidationTaskId}
-                    latestValidationTraces={workflow.latestValidationTraces}
-                    onApprovePlan={() => void workflow.handlePlanApproval("approved")}
-                    onRejectPlan={() => void workflow.handlePlanApproval("rejected")}
-                    onCreatePatch={() => void workflow.handleCreatePatch()}
-                    onApprovePatch={() => void workflow.handlePatchApproval("approved")}
-                    onRejectPatch={() => void workflow.handlePatchApproval("rejected")}
-                    onRunValidation={() => void workflow.handleRunValidation()}
-                    creatingPatch={workflow.creatingPatch}
-                    runningValidation={workflow.runningValidation}
-                    latestPatchTaskId={workflow.latestPatchTaskId}
-                    validationTestCommand={workflow.validationTestCommand}
-                    setValidationTestCommand={workflow.setValidationTestCommand}
                   />
                 </div>
 

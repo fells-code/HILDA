@@ -18,12 +18,16 @@ const QUICK_PROMPTS = [
     prompt: "Where is authentication implemented?",
   },
   {
-    label: "Debug issue",
-    prompt: "Why is this failing? Help me debug the issue.",
+    label: "How do I run it?",
+    prompt: "What commands can I run to start, build, or test this codebase?",
   },
   {
-    label: "Plan feature",
-    prompt: "How would we add a new feature here?",
+    label: "Find entrypoints",
+    prompt: "Where are the main entrypoints for this codebase?",
+  },
+  {
+    label: "Debug issue",
+    prompt: "Why is this failing? Help me debug the issue.",
   },
 ] as const;
 
@@ -59,7 +63,7 @@ export function PromptComposer({
         <textarea
           value={question}
           onChange={(event) => onChangeQuestion(event.target.value)}
-          placeholder="Ask about the repo, debug a failure, plan a feature, or request a change"
+          placeholder="Ask what this code does, how it is structured, where something is implemented, or how to run it"
           style={composerTextareaStyle}
           disabled={disabled}
           rows={3}
